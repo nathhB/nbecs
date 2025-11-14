@@ -1,0 +1,243 @@
+package nbecs
+
+import "base:runtime"
+import "core:fmt"
+import "core:log"
+import "core:mem"
+import vmem "core:mem/virtual"
+import "core:strings"
+
+Pair_Array :: [dynamic]EntityId
+
+Archetype :: struct {
+	is_root:              bool,
+	is_watcher:           bool,
+	node:                 ^ArchetypeNode,
+	component_set:        ComponentSet,
+	chunks:               [dynamic]^Archetype_Chunk,
+	component_column_map: map[EntityId]int,
+	pairs:                map[EntityId]Pair_Array,
+	active_chunk:         ^Archetype_Chunk,
+	chunk_capacity:       int,
+	chunk_free_list:      [dynamic]^Archetype_Chunk,
+	allocator:            mem.Allocator,
+}
+
+archetype_init :: proc(
+	world: ^World,
+	archetype: ^Archetype,
+	component_set: ^ComponentSet,
+	chunk_capacity := 0,
+	chunk_count := 1,
+	is_root := false,
+	allocator := context.allocator,
+) {
+	ensure(chunk_count > 0)
+
+	archetype.is_root = is_root
+	archetype.component_set = component_set^
+	archetype.chunks = make([dynamic]^Archetype_Chunk, allocator)
+	archetype.component_column_map = make(map[EntityId]int, allocator)
+	archetype.chunk_capacity =
+		chunk_capacity > 0 ? chunk_capacity : compute_chunk_capacity(world, component_set)
+	archetype.allocator = allocator
+
+	col_idx := 0
+	for component_id, _ in component_set.components {
+		component_size := ecs_get_component_size(world, component_id)
+
+		if component_size > 0 {
+			archetype.component_column_map[component_id] = col_idx
+
+			col_idx += 1
+		}
+
+		is_pair := ecs_is_pair(component_id)
+
+		if is_pair {
+			add_pair(archetype, component_id)
+		}
+
+		if !archetype.is_watcher && is_pair {
+			first, _ := ecs_pair_split(component_id)
+
+			archetype.is_watcher = first == ecs_get_type_id(world, Watcher)
+		}
+	}
+
+	for i := 0; i < chunk_count; i += 1 {
+		get_or_create_chunk(world, archetype)
+	}
+
+	archetype.active_chunk = archetype.chunks[0]
+}
+
+archetype_deinit :: proc(archetype: ^Archetype) {
+	for chunk in archetype.chunks {
+		delete(chunk.buffer)
+	}
+
+	for chunk in pop_safe(&archetype.chunk_free_list) {
+		delete(chunk.buffer)
+	}
+
+	if archetype.pairs != nil {
+		for _, pairs in archetype.pairs {
+			delete(pairs)
+		}
+
+		delete(archetype.pairs)
+	}
+
+	delete(archetype.chunks)
+	delete(archetype.component_column_map)
+
+	if archetype.chunk_free_list != nil {
+		delete(archetype.chunk_free_list)
+	}
+
+	component_set_deinit(&archetype.component_set)
+}
+
+archetype_has :: proc(archetype: ^Archetype, component_id: EntityId) -> bool {
+	return !archetype.is_root && component_set_has(&archetype.component_set, component_id)
+}
+
+archetype_add_entity :: proc(
+	world: ^World,
+	archetype: ^Archetype,
+	entity: EntityId,
+) -> (
+	chunk: ^Archetype_Chunk,
+	row: int,
+) {
+	chunk = archetype.active_chunk
+	chunk_count := len(chunk.entities)
+
+	if chunk_count == archetype.chunk_capacity {
+		chunk = get_or_create_chunk(world, archetype)
+		archetype.active_chunk = chunk
+	}
+
+	row = archetype_chunk_add_entity(chunk, entity)
+
+	return
+}
+
+archetype_delete_entity :: proc(
+	archetype: ^Archetype,
+	chunk: ^Archetype_Chunk,
+	row: int,
+) -> EntityId {
+	moved_entity := archetype_chunk_delete_entity(chunk, row)
+
+	if len(chunk.entities) == 0 && len(archetype.chunks) > 1 {
+		unordered_remove(&archetype.chunks, chunk.index)
+
+		if chunk == archetype.active_chunk {
+			ensure(chunk.index == archetype.active_chunk.index)
+
+			archetype.active_chunk = archetype.chunks[0]
+		}
+
+		if archetype.chunk_free_list == nil {
+			archetype.chunk_free_list = make([dynamic]^Archetype_Chunk, archetype.allocator)
+		}
+
+		append(&archetype.chunk_free_list, chunk)
+	}
+
+	return moved_entity
+}
+
+archetype_get_pair :: proc(archetype: ^Archetype, entity: EntityId) -> EntityId {
+	ensure(!ecs_is_pair(entity))
+
+	if archetype.pairs == nil {
+		return 0
+	}
+
+	pairs, exists := archetype.pairs[entity]
+
+	if !exists {
+		return 0
+	}
+
+	return pairs[0]
+}
+
+archetype_get_pairs :: proc(archetype: ^Archetype, entity: EntityId) -> []EntityId {
+	ensure(!ecs_is_pair(entity))
+
+	if archetype.pairs == nil {
+		return nil
+	}
+
+	pairs, exists := archetype.pairs[entity]
+
+	if !exists {
+		return nil
+	}
+
+	return pairs[:]
+}
+
+compute_chunk_capacity :: proc(world: ^World, component_set: ^ComponentSet) -> int {
+	chunk_overhead := size_of(Archetype_Chunk)
+	entity_size := size_of(EntityId)
+
+	for component_id, _ in component_set.components {
+		chunk_overhead += size_of(Archetype_Column)
+		entity_size += ecs_get_component_size(world, component_id)
+	}
+
+	capacity := (Archetype_ChunkSize_Bytes - chunk_overhead) / entity_size
+
+	// reduce capacity by 5% to account for alignment paddings
+	return capacity - int(f32(capacity) * 0.05)
+}
+
+@(private = "file")
+get_or_create_chunk :: proc(world: ^World, archetype: ^Archetype) -> ^Archetype_Chunk {
+	chunk: ^Archetype_Chunk
+
+	if archetype.chunk_free_list != nil && len(archetype.chunk_free_list) > 0 {
+		chunk = pop(&archetype.chunk_free_list)
+	} else {
+		chunk_buffer, err := mem.alloc_bytes(
+			Archetype_ChunkSize_Bytes,
+			allocator = archetype.allocator,
+		)
+		ensure(err == nil)
+
+		chunk = archetype_chunk_create(
+			world,
+			archetype,
+			archetype.chunk_capacity,
+			&archetype.component_set,
+			chunk_buffer,
+		)
+	}
+
+	chunk.index = len(archetype.chunks)
+	append(&archetype.chunks, chunk)
+
+	return chunk
+}
+
+@(private = "file")
+add_pair :: proc(archetype: ^Archetype, pair: EntityId) {
+	ensure(ecs_is_pair(pair))
+
+	if archetype.pairs == nil {
+		archetype.pairs = make(map[EntityId]Pair_Array, archetype.allocator)
+	}
+
+	first, _ := ecs_pair_split(pair)
+
+	if first not_in archetype.pairs {
+		archetype.pairs[first] = make(Pair_Array)
+	}
+
+	append(&archetype.pairs[first], pair)
+}
