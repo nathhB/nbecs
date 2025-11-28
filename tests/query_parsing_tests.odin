@@ -20,6 +20,7 @@ query_parse_tests :: proc(t: ^testing.T) {
 	query2 := ecs.query_parse(world, " Bar Plop Foo  ")
 	query3 := ecs.query_parse(world, "Bar Plop !Foo")
 	query4 := ecs.query_parse(world, "Plop (Foo, Plap)")
+	query5 := ecs.query_parse(world, "?Plop !Foo ?Bar")
 
 	check_query_terms(
 		t,
@@ -41,6 +42,13 @@ query_parse_tests :: proc(t: ^testing.T) {
 
 	check_query_terms(t, query3, ecs.query_term(world, Bar), ecs.query_term(world, plop), neg_foo)
 	check_query_terms(t, query4, ecs.query_term(world, plop), ecs.query_term(world, foo, plap))
+	check_query_terms(
+		t,
+		query5,
+		ecs.query_term(world, plop, optional = true),
+		neg_foo,
+		ecs.query_term(world, Bar, optional = true),
+	)
 }
 
 @(test)
@@ -49,7 +57,7 @@ cleanup_query_string_tests :: proc(t: ^testing.T) {
 	check_parsed_query_tokens(t, "Foo Bar Plop !Test ", "Foo", "Bar", "Plop", "!Test")
 	check_parsed_query_tokens(t, "Foo", "Foo")
 	check_parsed_query_tokens(t, "    !Foo     ", "!Foo")
-	check_parsed_query_tokens(t, "    !Foo     ", "!Foo")
+	check_parsed_query_tokens(t, "    ?Foo !Bar     ", "?Foo", "!Bar")
 }
 
 check_query_terms :: proc(
@@ -65,6 +73,7 @@ check_query_terms :: proc(
 	for term, idx in query.terms[0:(expected_term_count - 1)] {
 		testing.expect_value(t, term.component_id, expected_terms[idx].component_id, loc)
 		testing.expect_value(t, term.not, expected_terms[idx].not, loc)
+		testing.expect_value(t, term.optional, expected_terms[idx].optional, loc)
 	}
 }
 

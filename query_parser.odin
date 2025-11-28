@@ -29,6 +29,7 @@ query_parse :: proc(world: ^World, query_str: string, allocator := context.alloc
 	for token in tokens {
 		token := token
 		not := false
+		optional := false
 		is_pair := false
 
 		fmt.ensuref(token.type != .Unknown, "Unknown token type")
@@ -36,6 +37,9 @@ query_parse :: proc(world: ^World, query_str: string, allocator := context.alloc
 		if token.type == .Component {
 			if strings.starts_with(token.str, "!") {
 				not = true
+				token.str = string(token.str[1:])
+			} else if strings.starts_with(token.str, "?") {
+				optional = true
 				token.str = string(token.str[1:])
 			}
 		} else if token.type == .Pair {
@@ -52,6 +56,7 @@ query_parse :: proc(world: ^World, query_str: string, allocator := context.alloc
 
 			term = query_term(world, component)
 			term.not = not
+			term.optional = optional
 		}
 
 		append(&terms, term)

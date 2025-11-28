@@ -12,12 +12,18 @@ QueryTerm :: struct {
 	is_wildcard_pair: bool,
 	is_unique_pair:   bool,
 	not:              bool,
+	optional:         bool,
 	evaluator:        QueryTermEvaluator,
 }
 
 QueryField :: union {
-	int,
+	QueryField_ColumnIndex,
 	EntityId,
+}
+
+QueryField_ColumnIndex :: struct {
+	index:    int,
+	optional: bool,
 }
 
 QueryMatch :: struct {
@@ -170,7 +176,7 @@ query_column_index :: proc(iterator: ^QueryIterator, index: int) -> int {
 
 	fields := sa.slice(&iterator.current_match.fields)
 
-	return fields[index].(int)
+	return (fields[index].(QueryField_ColumnIndex)).index
 }
 
 query_unique_pair_entity :: proc(iterator: ^QueryIterator, index: int) -> EntityId {
@@ -228,7 +234,11 @@ query_term :: proc {
 	query_term_pair_2,
 }
 
-query_term_component_id :: proc(world: ^World, component_id: EntityId) -> QueryTerm {
+query_term_component_id :: proc(
+	world: ^World,
+	component_id: EntityId,
+	optional := false,
+) -> QueryTerm {
 	term := QueryTerm{}
 
 	term.component_id = component_id
@@ -236,17 +246,23 @@ query_term_component_id :: proc(world: ^World, component_id: EntityId) -> QueryT
 	term.is_pair = ecs_is_pair(term.component_id)
 	term.is_wildcard_pair = ecs_is_wildcard_pair(term.component_id)
 	term.evaluator = term_component_eval
+	term.optional = optional
 
 	return term
 }
 
-query_term_type :: proc(world: ^World, $T: typeid) -> QueryTerm {
-	return query_term_component_id(world, ecs_get_type_id(world, T))
+query_term_type :: proc(world: ^World, $T: typeid, optional := false) -> QueryTerm {
+	return query_term_component_id(world, ecs_get_type_id(world, T), optional)
 }
 
-query_term_pair :: proc(world: ^World, first: EntityId, second: EntityId) -> QueryTerm {
+query_term_pair :: proc(
+	world: ^World,
+	first: EntityId,
+	second: EntityId,
+	optional := false,
+) -> QueryTerm {
 	pair := ecs_build_pair(first, second)
-	term := query_term_component_id(world, pair)
+	term := query_term_component_id(world, pair, optional)
 
 	if ecs_is_unique_pair(world, pair) && second == Wildcard {
 		term.is_unique_pair = true
@@ -255,12 +271,22 @@ query_term_pair :: proc(world: ^World, first: EntityId, second: EntityId) -> Que
 	return term
 }
 
-query_term_pair_1 :: proc(world: ^World, $T: typeid, second: EntityId) -> QueryTerm {
-	return query_term_pair(world, ecs_get_type_id(world, T), second)
+query_term_pair_1 :: proc(
+	world: ^World,
+	$T: typeid,
+	second: EntityId,
+	optional := false,
+) -> QueryTerm {
+	return query_term_pair(world, ecs_get_type_id(world, T), second, optional)
 }
 
-query_term_pair_2 :: proc(world: ^World, first: EntityId, $T: typeid) -> QueryTerm {
-	return query_term_pair(world, first, ecs_get_type_id(world, T))
+query_term_pair_2 :: proc(
+	world: ^World,
+	first: EntityId,
+	$T: typeid,
+	optional := false,
+) -> QueryTerm {
+	return query_term_pair(world, first, ecs_get_type_id(world, T), optional)
 }
 
 query_not_term :: proc {
@@ -398,23 +424,28 @@ term_component_eval :: proc(evaluator: ^QueryEvaluator, term: ^QueryTerm) -> boo
 	world := evaluator.world
 
 	if term.is_wildcard_pair {
+		ensure(!term.optional)
+		ensure(!term.not)
+
 		return evaluate_wildcard_pair(world, match, term)
 	}
 
-	cond := archetype_has(evaluator.match.archetype, term.component_id)
+	has := archetype_has(evaluator.match.archetype, term.component_id)
 
-	if term.not {
-		cond = !cond
-	}
+	if !term.optional {
+		if term.not {
+			has = !has
+		}
 
-	if !cond {
-		return false
+		if !has {
+			return false
+		}
 	}
 
 	if term.component_size > 0 {
-		col_index := match.archetype.component_column_map[term.component_id]
+		col_index := has ? match.archetype.component_column_map[term.component_id] : -1
 
-		sa.set(&match.fields, term.index, col_index)
+		sa.set(&match.fields, term.index, QueryField_ColumnIndex{col_index, term.optional})
 	}
 
 	return true
