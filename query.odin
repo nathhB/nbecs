@@ -13,6 +13,7 @@ QueryTerm :: struct {
 	is_unique_pair:   bool,
 	not:              bool,
 	optional:         bool,
+	parent:           bool,
 	evaluator:        QueryTermEvaluator,
 }
 
@@ -28,6 +29,7 @@ QueryField_ColumnIndex :: struct {
 
 QueryMatch :: struct {
 	archetype: ^Archetype,
+	parent:    EntityId,
 	fields:    sa.Small_Array(ComponentSet_MaxCapacity, QueryField),
 }
 
@@ -175,8 +177,9 @@ query_column_index :: proc(iterator: ^QueryIterator, index: int) -> int {
 	ensure(iterator.current_match != nil)
 
 	fields := sa.slice(&iterator.current_match.fields)
+	field := &fields[index]
 
-	return (fields[index].(QueryField_ColumnIndex)).index
+	return (field.(QueryField_ColumnIndex)).index
 }
 
 query_unique_pair_entity :: proc(iterator: ^QueryIterator, index: int) -> EntityId {
@@ -204,6 +207,10 @@ query_entity_data_mut :: proc(iterator: ^QueryIterator, col_idx: int, $T: typeid
 	}
 
 	return (^T)(archetype_chunk_get_data(chunk, col_idx, iterator.current_row - 1))
+}
+
+query_get_parent :: proc(it: ^QueryIterator) {
+	return it.current_match.parent
 }
 
 query_get_match_count :: proc(query: ^Query) -> int {
@@ -336,17 +343,6 @@ query_matches_archetype :: proc(query: ^Query, archetype: ^Archetype) -> bool {
 	return archetype.component_set.hash in query.match_index
 }
 
-/*query_term_parent :: proc(world: ^World, $T: typeid) -> QueryTerm {
-    term := QueryTerm{}
-
-    term.component_id = ecs_get_type_id(world, T)
-    term.is_pair = false
-    term.is_wildcard_pair = false
-    term.evaluator = term_parent_eval
-
-    return term
-}*/
-
 @(private = "file")
 evaluate_cached_query :: proc(query: ^Query) {
 	ensure(len(query.terms) > 0)
@@ -402,7 +398,12 @@ evaluate_archetype :: proc(
 ) {
 	evaluator := QueryEvaluator{world, terms, &match, 0}
 
+	child_of_pair := archetype_get_pair(archetype, ChildOf)
+	_, parent := ecs_pair_split(child_of_pair)
+
 	match.archetype = archetype
+	match.parent = parent
+
 	sa.resize(&match.fields, ComponentSet_MaxCapacity)
 
 	for i := 0; i < len(terms); i += 1 {

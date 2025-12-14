@@ -342,3 +342,47 @@ query_optional_term_tests :: proc(t: ^testing.T) {
 	expect_query_matched_entities(t, q1, []ecs.EntityId{e1, e2, e3})
 	expect_query_matched_entities(t, q2, []ecs.EntityId{e2})
 }
+
+@(test)
+query_parent_component_test :: proc(t: ^testing.T) {
+	world := ecs.ecs_create()
+	defer ecs.ecs_destroy(world)
+
+	foo: ecs.EntityId = ecs.ecs_declare(world, Foo)
+	bar: ecs.EntityId = ecs.ecs_declare(world, Bar)
+
+	e1 := ecs.ecs_new(world)
+	e2 := ecs.ecs_new(world)
+	e3 := ecs.ecs_new(world)
+
+	ecs.ecs_set(world, e1, &Foo{42})
+
+	ecs.ecs_set(world, e2, &Foo{12})
+	ecs.ecs_set(world, e2, &Bar{142})
+
+	ecs.ecs_set(world, e3, &Foo{242})
+
+	ecs.ecs_set_parent(world, e2, e1)
+	ecs.ecs_set_parent(world, e3, e2)
+
+	q1 := ecs.query_build(world, ecs.query_term(world, Foo))
+	it := ecs.query_iter(q1)
+
+	expect_query_matched_entities(t, q1, []ecs.EntityId{e1, e2, e3})
+
+	for i := 0; i < len(it.matches); i += 1 {
+		ecs.query_iter_next_match(&it)
+
+		if it.current_match.archetype == world.entities[e1].chunk.archetype {
+			testing.expect_value(t, it.current_match.parent, 0)
+		}
+
+		if it.current_match.archetype == world.entities[e2].chunk.archetype {
+			testing.expect_value(t, it.current_match.parent, e1)
+		}
+
+		if it.current_match.archetype == world.entities[e3].chunk.archetype {
+			testing.expect_value(t, it.current_match.parent, e2)
+		}
+	}
+}

@@ -78,7 +78,7 @@ expect_archetype_index :: proc(
 			exists && indexed_archetype == archetype,
 			"archetype was not present in the index: %w",
 			archetype,
-			loc,
+			loc = loc,
 		)
 
 		if exists {
@@ -107,7 +107,7 @@ expect_entity_archetype :: proc(
 	expected_archetype: ^ecs.Archetype,
 	loc := #caller_location,
 ) {
-	testing.expectf(t, ecs.ecs_is_valid(world, entity), "entity is not valid", loc)
+	testing.expectf(t, ecs.ecs_is_valid(world, entity), "entity is not valid", loc = loc)
 	testing.expect_value(t, world.entities[entity].chunk.archetype, expected_archetype, loc)
 }
 
@@ -128,7 +128,7 @@ expect_query_matched_archetypes :: proc(
 			t,
 			slice.contains(expected_archetypes, it.current_match.archetype),
 			"query matched an unexpected archetype",
-			loc,
+			loc = loc,
 		)
 	}
 
@@ -138,7 +138,7 @@ expect_query_matched_archetypes :: proc(
 		"query did not match the expected number of archetypes (actual: %d, expected: %d)",
 		match_count,
 		len(expected_archetypes),
-		loc,
+		loc = loc,
 	)
 }
 
@@ -161,7 +161,7 @@ expect_query_matched_entities :: proc(
 				slice.contains(expected_entities, entity),
 				"query matched an unexpected entity: %d",
 				entity,
-				loc,
+				loc = loc,
 			)
 		}
 	}
@@ -172,7 +172,7 @@ expect_query_matched_entities :: proc(
 		"query did not match the expected number of entities (actual: %d, expected: %d)",
 		match_count,
 		len(expected_entities),
-		loc,
+		loc = loc,
 	)
 }
 
@@ -196,7 +196,7 @@ expect_filter_matched_entities :: proc(
 				slice.contains(expected_entities, entity),
 				"query matched an unexpected entity: %d",
 				entity,
-				loc,
+				loc = loc,
 			)
 		}
 	}
@@ -207,7 +207,7 @@ expect_filter_matched_entities :: proc(
 		"query did not match the expected number of entities (actual: %d, expected: %d)",
 		match_count,
 		len(expected_entities),
-		loc,
+		loc = loc,
 	)
 }
 
