@@ -344,7 +344,7 @@ query_optional_term_tests :: proc(t: ^testing.T) {
 }
 
 @(test)
-query_parent_component_test :: proc(t: ^testing.T) {
+query_parent_component_tests :: proc(t: ^testing.T) {
 	world := ecs.ecs_create()
 	defer ecs.ecs_destroy(world)
 
@@ -385,4 +385,33 @@ query_parent_component_test :: proc(t: ^testing.T) {
 			testing.expect_value(t, it.current_match.parent, e2)
 		}
 	}
+}
+
+@(test)
+query_cascade_tests :: proc(t: ^testing.T) {
+	world := ecs.ecs_create()
+	defer ecs.ecs_destroy(world)
+
+	ecs.ecs_declare(world, Foo)
+
+	e2 := ecs.ecs_new(world)
+	e5 := ecs.ecs_new(world)
+	e1 := ecs.ecs_new(world)
+	e4 := ecs.ecs_new(world)
+	e3 := ecs.ecs_new(world)
+
+	ecs.ecs_set_parent(world, e2, e1)
+	ecs.ecs_set_parent(world, e3, e2)
+	ecs.ecs_set_parent(world, e4, e3)
+	ecs.ecs_set_parent(world, e5, e4)
+
+	ecs.ecs_set(world, e1, &Foo{0})
+	ecs.ecs_set(world, e2, &Foo{0})
+	ecs.ecs_set(world, e3, &Foo{0})
+	ecs.ecs_set(world, e4, &Foo{0})
+	ecs.ecs_set(world, e5, &Foo{0})
+
+	q1 := ecs.query_build(world, ecs.query_term(world, Foo), cascade = true)
+
+	expect_query_matched_entities_in_order(t, q1, []ecs.EntityId{e1, e2, e3, e4, e5})
 }

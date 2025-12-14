@@ -19,7 +19,7 @@ TypeTrait: EntityId
 @(thread_local)
 Wildcard: EntityId
 @(thread_local)
-ChildOf: EntityId
+ChildOf_Id: EntityId
 @(thread_local)
 Pipeline_Default: EntityId
 @(thread_local)
@@ -107,6 +107,10 @@ Watcher :: struct {
 	ctx:       rawptr,
 }
 
+ChildOf :: struct {
+	depth: int,
+}
+
 ecs_create :: proc(allocator := context.allocator) -> ^World {
 	world := new(World, allocator)
 
@@ -130,7 +134,6 @@ ecs_create :: proc(allocator := context.allocator) -> ^World {
 
 	TypeTrait = ecs_new(world, "TypeTrait")
 	Wildcard = ecs_new(world, "*", u8(EntityId_Flags.Reserved))
-	ChildOf = ecs_new(world, "ChildOf")
 	OnDelete = ecs_new(world, "OnDelete")
 	DeleteStrategy_Delete = ecs_new(world, "Delete")
 	DeleteStrategy_Remove = ecs_new(world, "Remove")
@@ -138,11 +141,13 @@ ecs_create :: proc(allocator := context.allocator) -> ^World {
 	Prefab = ecs_new(world, "Prefab")
 	Event_Deleted = ecs_new(world, "Event_Deleted")
 
-	ecs_add(world, ChildOf, UniquePair)
 
 	ecs_declare(world, System, "System")
 	Pipeline_Default = ecs_pipeline(world, "DefaultPipeline")
 	ecs_declare(world, Watcher, "Watcher")
+	ChildOf_Id = ecs_declare(world, ChildOf, "ChildOf")
+
+	ecs_add(world, ChildOf_Id, UniquePair)
 
 	ensure(world.next_entity_id <= ReservedIDs + 1)
 	world.config.default_delete_strategy = DeleteStrategy_Remove
@@ -315,6 +320,7 @@ ecs_system_default :: proc(
 	terms: ..QueryTerm,
 	before_update_proc: System_Hook_Proc = nil,
 	after_update_proc: System_Hook_Proc = nil,
+	cascade := false,
 ) {
 	ecs_system_pipeline(
 		world,
@@ -324,6 +330,7 @@ ecs_system_default :: proc(
 		..terms,
 		before_update_proc = before_update_proc,
 		after_update_proc = after_update_proc,
+		cascade = cascade,
 	)
 }
 
@@ -335,11 +342,16 @@ ecs_system_pipeline :: proc(
 	terms: ..QueryTerm,
 	before_update_proc: System_Hook_Proc = nil,
 	after_update_proc: System_Hook_Proc = nil,
+	cascade := false,
 ) {
 	ensure(ecs_is_valid(world, pipeline))
 	system := ecs_new(world)
 
-	query := len(terms) > 0 ? query_build(world, ..terms, allocator = world.allocator) : nil
+	query: ^Query
+
+	if len(terms) > 0 {
+		query = query_build(world, ..terms, cascade = cascade, allocator = world.allocator)
+	}
 
 	ecs_set(world, system, &System{query, procedure, before_update_proc, after_update_proc, ctx})
 	ecs_add(world, system, pipeline)
@@ -352,6 +364,7 @@ ecs_system_default_str :: proc(
 	query_str: string,
 	before_update_proc: System_Hook_Proc = nil,
 	after_update_proc: System_Hook_Proc = nil,
+	cascade := false,
 ) {
 	ecs_system_pipeline_str(
 		world,
@@ -372,11 +385,12 @@ ecs_system_pipeline_str :: proc(
 	query_str: string,
 	before_update_proc: System_Hook_Proc = nil,
 	after_update_proc: System_Hook_Proc = nil,
+	cascade := false,
 ) {
 	ensure(ecs_is_valid(world, pipeline))
 	system := ecs_new(world)
 
-	query := query_parse(world, query_str, allocator = world.allocator)
+	query := query_parse(world, query_str, cascade = cascade, allocator = world.allocator)
 
 	ecs_set(world, system, &System{query, procedure, before_update_proc, after_update_proc, ctx})
 	ecs_add(world, system, pipeline)
@@ -388,6 +402,7 @@ ecs_system_default_no_ctx :: proc(
 	terms: ..QueryTerm,
 	before_update_proc: System_Hook_Proc = nil,
 	after_update_proc: System_Hook_Proc = nil,
+	cascade := false,
 ) {
 	ecs_system_default(
 		world,
@@ -396,6 +411,7 @@ ecs_system_default_no_ctx :: proc(
 		..terms,
 		before_update_proc = before_update_proc,
 		after_update_proc = after_update_proc,
+		cascade = cascade,
 	)
 }
 
@@ -406,6 +422,7 @@ ecs_system_pipeline_no_ctx :: proc(
 	terms: ..QueryTerm,
 	before_update_proc: System_Hook_Proc = nil,
 	after_update_proc: System_Hook_Proc = nil,
+	cascade := false,
 ) {
 	ecs_system_pipeline(
 		world,
@@ -415,6 +432,7 @@ ecs_system_pipeline_no_ctx :: proc(
 		..terms,
 		before_update_proc = before_update_proc,
 		after_update_proc = after_update_proc,
+		cascade = cascade,
 	)
 }
 
@@ -424,6 +442,7 @@ ecs_system_default_no_ctx_str :: proc(
 	query_str: string,
 	before_update_proc: System_Hook_Proc = nil,
 	after_update_proc: System_Hook_Proc = nil,
+	cascade := false,
 ) {
 	ecs_system_default_str(
 		world,
@@ -432,6 +451,7 @@ ecs_system_default_no_ctx_str :: proc(
 		query_str,
 		before_update_proc = before_update_proc,
 		after_update_proc = after_update_proc,
+		cascade = cascade,
 	)
 }
 
@@ -442,6 +462,7 @@ ecs_system_pipeline_no_ctx_str :: proc(
 	query_str: string,
 	before_update_proc: System_Hook_Proc = nil,
 	after_update_proc: System_Hook_Proc = nil,
+	cascade := false,
 ) {
 	ecs_system_pipeline_str(
 		world,
@@ -451,6 +472,7 @@ ecs_system_pipeline_no_ctx_str :: proc(
 		query_str,
 		before_update_proc = before_update_proc,
 		after_update_proc = after_update_proc,
+		cascade = cascade,
 	)
 }
 
@@ -1095,17 +1117,25 @@ ecs_set_parent :: proc(world: ^World, entity: EntityId, parent: EntityId) {
 	ensure(ecs_is_valid(world, entity))
 	ensure(ecs_is_valid(world, parent))
 
-	ecs_add_pair(world, entity, ChildOf, parent)
+	depth := ecs_get_entity_depth(world, parent)
+
+	ecs_set_pair(world, entity, ChildOf_Id, parent, &ChildOf{depth + 1})
 }
 
 ecs_get_parent :: proc(world: ^World, entity: EntityId) -> EntityId {
 	ensure(ecs_is_valid(world, entity))
 
 	entity_entry := &world.entities[entity]
-	pair := archetype_get_pair(entity_entry.chunk.archetype, ChildOf)
+	pair := archetype_get_pair(entity_entry.chunk.archetype, ChildOf_Id)
 	_, parent := ecs_pair_split(pair)
 
 	return parent
+}
+
+ecs_get_entity_depth :: proc(world: ^World, entity: EntityId) -> int {
+	entry := &world.entities[entity]
+
+	return entry.chunk.archetype.depth
 }
 
 ecs_get_name :: proc(world: ^World, entity: EntityId) -> string {

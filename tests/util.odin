@@ -176,6 +176,32 @@ expect_query_matched_entities :: proc(
 	)
 }
 
+expect_query_matched_entities_in_order :: proc(
+	t: ^testing.T,
+	query: ^ecs.Query,
+	expected_entities: []ecs.EntityId,
+	loc := #caller_location,
+) {
+	it := ecs.query_iter(query)
+	matched_entities := make([dynamic]ecs.EntityId)
+	defer delete(matched_entities)
+
+	for ecs.query_iter_next_match(&it) {
+		for entity in ecs.query_iter_next_entity(&it) {
+			append(&matched_entities, entity)
+		}
+	}
+
+	testing.expectf(
+		t,
+		slice.equal(matched_entities[:], expected_entities),
+		"query did not match the expected entities (actual: %w, expected: %w)",
+		matched_entities,
+		expected_entities,
+		loc = loc,
+	)
+}
+
 expect_filter_matched_entities :: proc(
 	t: ^testing.T,
 	world: ^ecs.World,

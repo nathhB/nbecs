@@ -3,6 +3,7 @@ package nbecs
 import sa "core:container/small_array"
 import "core:log"
 import "core:mem"
+import "core:slice"
 
 QueryTerm :: struct {
 	index:            int,
@@ -39,6 +40,7 @@ Query :: struct {
 	match_index: map[u64]int,
 	matches:     [dynamic]QueryMatch,
 	allocator:   mem.Allocator,
+	cascade:     bool,
 }
 
 QueryIterator :: struct {
@@ -61,7 +63,12 @@ QueryEvaluator :: struct {
 
 QueryTermEvaluator :: #type proc(evaluator: ^QueryEvaluator, term: ^QueryTerm) -> bool
 
-query_build :: proc(world: ^World, terms: ..QueryTerm, allocator := context.allocator) -> ^Query {
+query_build :: proc(
+	world: ^World,
+	terms: ..QueryTerm,
+	cascade := false,
+	allocator := context.allocator,
+) -> ^Query {
 	query := new(Query, allocator)
 
 	query.world = world
@@ -70,6 +77,7 @@ query_build :: proc(world: ^World, terms: ..QueryTerm, allocator := context.allo
 	query.matches = make([dynamic]QueryMatch, allocator)
 	query.match_index = make(map[u64]int, allocator)
 	query.allocator = allocator
+	query.cascade = cascade
 
 	for &term, index in terms {
 		// ensure(!term.is_wildcard_pair || term.component_id in query.world.archetype_index)
@@ -90,6 +98,7 @@ query_destroy :: proc(query: ^Query) {
 	delete(query.terms)
 	delete(query.matches)
 	delete(query.match_index)
+
 	free(query, query.allocator)
 }
 
@@ -209,7 +218,7 @@ query_entity_data_mut :: proc(iterator: ^QueryIterator, col_idx: int, $T: typeid
 	return (^T)(archetype_chunk_get_data(chunk, col_idx, iterator.current_row - 1))
 }
 
-query_get_parent :: proc(it: ^QueryIterator) {
+query_get_parent :: proc(it: ^QueryIterator) -> EntityId {
 	return it.current_match.parent
 }
 
@@ -398,7 +407,7 @@ evaluate_archetype :: proc(
 ) {
 	evaluator := QueryEvaluator{world, terms, &match, 0}
 
-	child_of_pair := archetype_get_pair(archetype, ChildOf)
+	child_of_pair := archetype_get_pair(archetype, ChildOf_Id)
 	_, parent := ecs_pair_split(child_of_pair)
 
 	match.archetype = archetype
@@ -480,8 +489,34 @@ term_parent_eval :: proc(evaluator: ^QueryEvaluator, term: ^QueryTerm) -> bool {
 add_cached_match :: proc(query: ^Query, match: ^QueryMatch) {
 	ensure(match.archetype.component_set.hash not_in query.match_index)
 	append(&query.matches, match^)
-	index := len(query.matches) - 1
+
+	index := -1
+
+	if query.cascade {
+		slice.sort_by(query.matches[:], match_depth_sort)
+		index = get_match_location(query, match)
+	} else {
+		index = len(query.matches) - 1
+	}
+
+	ensure(index >= 0)
 	query.match_index[match.archetype.component_set.hash] = index
+}
+
+@(private = "file")
+get_match_location :: proc(query: ^Query, match: ^QueryMatch) -> int {
+	for &m, index in query.matches {
+		if m.archetype.component_set.hash == match.archetype.component_set.hash {
+			return index
+		}
+	}
+
+	return -1
+}
+
+@(private = "file")
+match_depth_sort :: proc(m1, m2: QueryMatch) -> bool {
+	return m1.archetype.depth < m2.archetype.depth
 }
 
 @(private = "file")
@@ -489,9 +524,14 @@ delete_match :: proc(query: ^Query, hash: u64) {
 	match_index, exists := query.match_index[hash]
 	ensure(exists)
 	delete_key(&query.match_index, hash)
-	moved_archetype := query.matches[len(query.matches) - 1].archetype
-	unordered_remove(&query.matches, match_index)
-	query.match_index[moved_archetype.component_set.hash] = match_index
+
+	if query.cascade {
+		ordered_remove(&query.matches, match_index)
+	} else {
+		moved_archetype := query.matches[len(query.matches) - 1].archetype
+		unordered_remove(&query.matches, match_index)
+		query.match_index[moved_archetype.component_set.hash] = match_index
+	}
 }
 
 @(private = "file")

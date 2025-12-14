@@ -18,7 +18,12 @@ Query_Token :: struct {
 	str:  string,
 }
 
-query_parse :: proc(world: ^World, query_str: string, allocator := context.allocator) -> ^Query {
+query_parse :: proc(
+	world: ^World,
+	query_str: string,
+	cascade := false,
+	allocator := context.allocator,
+) -> ^Query {
 	tokens, err := tokenize_query_string(query_str, allocator)
 	defer delete(tokens)
 	ensure(err == .None)
@@ -62,7 +67,7 @@ query_parse :: proc(world: ^World, query_str: string, allocator := context.alloc
 		append(&terms, term)
 	}
 
-	return query_build(world, ..terms[:], allocator = allocator)
+	return query_build(world, ..terms[:], cascade = cascade, allocator = allocator)
 }
 
 tokenize_query_string :: proc(

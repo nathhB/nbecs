@@ -21,6 +21,7 @@ Archetype :: struct {
 	chunk_capacity:       int,
 	chunk_free_list:      [dynamic]^Archetype_Chunk,
 	allocator:            mem.Allocator,
+	depth:                int,
 }
 
 archetype_init :: proc(
@@ -55,7 +56,7 @@ archetype_init :: proc(
 		is_pair := ecs_is_pair(component_id)
 
 		if is_pair {
-			add_pair(archetype, component_id)
+			add_pair(world, archetype, component_id)
 		}
 
 		if !archetype.is_watcher && is_pair {
@@ -226,17 +227,23 @@ get_or_create_chunk :: proc(world: ^World, archetype: ^Archetype) -> ^Archetype_
 }
 
 @(private = "file")
-add_pair :: proc(archetype: ^Archetype, pair: EntityId) {
+add_pair :: proc(world: ^World, archetype: ^Archetype, pair: EntityId) {
 	ensure(ecs_is_pair(pair))
 
 	if archetype.pairs == nil {
 		archetype.pairs = make(map[EntityId]Pair_Array, archetype.allocator)
 	}
 
-	first, _ := ecs_pair_split(pair)
+	first, second := ecs_pair_split(pair)
 
 	if first not_in archetype.pairs {
 		archetype.pairs[first] = make(Pair_Array)
+	}
+
+	if first == ChildOf_Id {
+		ensure(ecs_exists(world, second))
+
+		archetype.depth = ecs_get_entity_depth(world, second) + 1
 	}
 
 	append(&archetype.pairs[first], pair)
