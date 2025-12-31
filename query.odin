@@ -191,6 +191,17 @@ query_column_index :: proc(iterator: ^QueryIterator, index: int) -> int {
 	return (field.(QueryField_ColumnIndex)).index
 }
 
+query_unique_pair_column_index :: proc(iterator: ^QueryIterator, $T: typeid) -> int {
+	ensure(iterator.current_match != nil)
+
+	archetype := iterator.current_match.archetype
+	pair := archetype_get_pair(archetype, ecs_get_type_id(iterator.world, T))
+	ensure(pair > 0)
+	ensure(pair in archetype.component_column_map)
+
+	return archetype.component_column_map[pair]
+}
+
 query_unique_pair_entity :: proc(iterator: ^QueryIterator, index: int) -> EntityId {
 	ensure(iterator.current_match != nil)
 	ensure(iterator.terms[index].is_unique_pair)
@@ -216,6 +227,15 @@ query_entity_data_mut :: proc(iterator: ^QueryIterator, col_idx: int, $T: typeid
 	}
 
 	return (^T)(archetype_chunk_get_data(chunk, col_idx, iterator.current_row - 1))
+}
+
+query_pair :: proc(iterator: ^QueryIterator, col_idx: int) -> (first: EntityId, second: EntityId) {
+	chunk := iterator.current_chunk
+	col := &chunk.columns[col_idx]
+
+	ensure(ecs_is_pair(col.component_id))
+
+	return ecs_pair_split(col.component_id)
 }
 
 query_get_parent :: proc(it: ^QueryIterator) -> EntityId {
