@@ -103,6 +103,13 @@ query_destroy :: proc(query: ^Query) {
 }
 
 query_iter :: proc(query: ^Query) -> QueryIterator {
+	// when ECS_DEBUG {
+	// 	query_str := query_to_str(query)
+	// 	defer delete(query_str)
+	//
+	// 	ecs_debug_log("started iterating query: %s", query_str)
+	// }
+
 	return QueryIterator{query.world, query.terms, query.matches[:], nil, nil, 0, 0, 0}
 }
 
@@ -143,6 +150,13 @@ query_iter_next_match :: proc(iterator: ^QueryIterator) -> bool {
 	iterator.next_chunk_index = 0
 	iterator.current_chunk = nil
 	iterator.current_row = 0
+
+	// when ECS_DEBUG {
+	// 	arch_str := archetype_to_str(iterator.world, iterator.current_match.archetype)
+	// 	defer delete(arch_str)
+	//
+	// 	ecs_debug_log("matched archetype: %s %w", arch_str, iterator.current_match)
+	// }
 
 	return true
 }
@@ -247,9 +261,20 @@ query_get_match_count :: proc(query: ^Query) -> int {
 }
 
 query_on_archertype_created :: proc(query: ^Query, archetype: ^Archetype) {
+	ensure(!archetype.is_root)
+
 	match, ok := evaluate_archetype(query.world, query.terms, archetype)
 
 	if ok {
+		when ECS_DEBUG {
+			arch_str := archetype_to_str(query.world, match.archetype)
+			defer delete(arch_str)
+			query_str := query_to_str(query)
+			defer delete(query_str)
+
+			ecs_debug_log("archertype %s added to query matches: %s", arch_str, query_str)
+		}
+
 		add_cached_match(query, &match)
 	}
 }
@@ -258,6 +283,15 @@ query_on_archertype_deleted :: proc(query: ^Query, archetype: ^Archetype) {
 	match, ok := evaluate_archetype(query.world, query.terms, archetype)
 
 	if ok && archetype.component_set.hash in query.match_index {
+		when ECS_DEBUG {
+			arch_str := archetype_to_str(query.world, match.archetype)
+			defer delete(arch_str)
+			query_str := query_to_str(query)
+			defer delete(query_str)
+
+			ecs_debug_log("archertype %s was removed from query matches: %s", arch_str, query_str)
+		}
+
 		delete_match(query, match.archetype.component_set.hash)
 	}
 }
@@ -514,7 +548,16 @@ add_cached_match :: proc(query: ^Query, match: ^QueryMatch) {
 
 	if query.cascade {
 		slice.sort_by(query.matches[:], match_depth_sort)
-		index = get_match_location(query, match)
+		clear(&query.match_index)
+
+		for m, i in query.matches {
+			hash := m.archetype.component_set.hash
+			query.match_index[hash] = i
+
+			if hash == match.archetype.component_set.hash {
+				index = i
+			}
+		}
 	} else {
 		index = len(query.matches) - 1
 	}
@@ -543,11 +586,16 @@ match_depth_sort :: proc(m1, m2: QueryMatch) -> bool {
 delete_match :: proc(query: ^Query, hash: u64) {
 	match_index, exists := query.match_index[hash]
 	ensure(exists)
-	delete_key(&query.match_index, hash)
 
 	if query.cascade {
 		ordered_remove(&query.matches, match_index)
+		clear(&query.match_index)
+
+		for match, i in query.matches {
+			query.match_index[match.archetype.component_set.hash] = i
+		}
 	} else {
+		delete_key(&query.match_index, hash)
 		moved_archetype := query.matches[len(query.matches) - 1].archetype
 		unordered_remove(&query.matches, match_index)
 		query.match_index[moved_archetype.component_set.hash] = match_index

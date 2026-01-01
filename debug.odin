@@ -5,11 +5,11 @@ import "core:log"
 import "core:strconv"
 import "core:strings"
 
-ecs_debug_log :: proc(msg: string, args: ..any) {
+ecs_debug_log :: proc(msg: string, args: ..any, loc := #caller_location) {
 	fmt_msg := fmt.aprintf(msg, ..args)
 	defer delete(fmt_msg)
 
-	log.debugf("ECS: %s", fmt_msg)
+	log.debugf("ECS: %s", fmt_msg, location = loc)
 }
 
 ecs_entity_to_str :: proc(world: ^World, entity: EntityId) -> string {
@@ -158,5 +158,83 @@ component_set_to_str :: proc(world: ^World, set: ^ComponentSet) -> string {
 
 	str := strings.to_string(sb)
 
+	return strings.clone(str)
+}
+
+query_to_str :: proc(query: ^Query) -> string {
+	sb := strings.Builder{}
+
+	strings.builder_init(&sb)
+	defer strings.builder_destroy(&sb)
+
+	terms := make([]string, len(query.terms))
+	defer delete(terms)
+
+	for term, i in query.terms {
+		terms[i] = query_term_str(query.world, term)
+	}
+
+	terms_str := strings.join(terms, ", ")
+	defer delete(terms_str)
+
+	strings.write_string(&sb, "Query[")
+	strings.write_string(&sb, terms_str)
+	strings.write_string(&sb, "]")
+
+	if query.cascade {
+		strings.write_string(&sb, " CASCADE")
+	}
+
+	str := strings.to_string(sb)
+	return strings.clone(str)
+}
+
+query_term_str :: proc(world: ^World, term: QueryTerm) -> string {
+	sb := strings.Builder{}
+
+	strings.builder_init(&sb)
+	defer strings.builder_destroy(&sb)
+
+	if term.is_pair {
+		first, second := ecs_pair_split(term.component_id)
+		first_name := ecs_is_valid(world, first) ? ecs_get_name(world, first) : ""
+		second_name := ecs_is_valid(world, second) ? ecs_get_name(world, second) : ""
+
+		strings.write_string(&sb, "(")
+
+		if first_name == "" {
+			strings.write_u64(&sb, first)
+		} else {
+			strings.write_string(&sb, first_name)
+		}
+
+		strings.write_string(&sb, ", ")
+
+		if second_name == "" {
+			strings.write_u64(&sb, second)
+		} else {
+			strings.write_string(&sb, second_name)
+		}
+
+		strings.write_string(&sb, ")")
+	} else {
+		name := ecs_get_name(world, term.component_id)
+
+		if term.not {
+			strings.write_string(&sb, "!")
+		}
+
+		if term.optional {
+			strings.write_string(&sb, "?")
+		}
+
+		if name == "" {
+			strings.write_u64(&sb, term.component_id)
+		} else {
+			strings.write_string(&sb, name)
+		}
+	}
+
+	str := strings.to_string(sb)
 	return strings.clone(str)
 }
