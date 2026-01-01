@@ -1132,6 +1132,25 @@ ecs_get_parent :: proc(world: ^World, entity: EntityId) -> EntityId {
 	return parent
 }
 
+ecs_get_children :: proc(
+	world: ^World,
+	entity: EntityId,
+	allocator := context.allocator,
+) -> []EntityId {
+	childof_pair := ecs_build_pair(ChildOf_Id, entity)
+	it := filter_iter(world, query_term(world, childof_pair), allocator = allocator)
+
+	children := make([dynamic]EntityId, allocator = allocator)
+
+	for query_iter_next_match(&it) {
+		for child in query_iter_next_entity(&it) {
+			append(&children, child)
+		}
+	}
+
+	return children[:]
+}
+
 ecs_get_entity_depth :: proc(world: ^World, entity: EntityId) -> int {
 	entry := &world.entities[entity]
 
@@ -1221,6 +1240,14 @@ ecs_new_instance_of :: proc(world: ^World, prefab: EntityId, name := "") -> Enti
 
 	archetype_chunk_copy_row(src_chunk, dest_chunk, src_row, dest_row)
 	ecs_remove(world, entity, Prefab)
+
+	prefab_children := ecs_get_children(world, prefab, allocator = world.temp_allocator)
+
+	for prefab_child in prefab_children {
+		child := ecs_new_instance_of(world, prefab_child)
+
+		ecs_set_parent(world, child, entity)
+	}
 
 	return entity
 }
