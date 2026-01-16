@@ -1,11 +1,12 @@
-package nbecs
+package snapshot
 
+import ecs ".."
 import "core:fmt"
 import "core:log"
 import "core:mem"
 
-take_snapshot :: proc(src_world: ^World, allocator := context.allocator) -> ^World {
-	snap_world := ecs_create_snapshot(allocator)
+take_snapshot :: proc(src_world: ^ecs.World, allocator := context.allocator) -> ^ecs.World {
+	snap_world := ecs.ecs_create_snapshot(allocator)
 
 	copy_root(src_world, snap_world)
 	copy_types(src_world, snap_world, allocator)
@@ -17,14 +18,14 @@ take_snapshot :: proc(src_world: ^World, allocator := context.allocator) -> ^Wor
 	}
 
 	// this is a bit of a dirty hack
-	// loop over all archetypes from the source world again has some archetypes
-	// might not get picked up from iterating the archettype graph as done right above
+	// loop over all archetypes from the source world again as some archetypes
+	// might not get picked up from iterating the archetype graph as done just above
 	// for instance, for archetypes that have been created via 'archetype_graph_replace'
 	for hash, node in src_world.archetypes.nodes {
 		if hash not_in snap_world.archetypes.nodes {
 			src_archetype := &node.archetype
 			src_chunk_count := len(src_archetype.chunks)
-			dest_node := create_new_archetype(
+			dest_node := ecs.create_new_archetype(
 				snap_world,
 				&snap_world.archetypes,
 				&src_archetype.component_set,
@@ -44,10 +45,10 @@ take_snapshot :: proc(src_world: ^World, allocator := context.allocator) -> ^Wor
 	return snap_world
 }
 
-copy_root :: proc(src_world: ^World, snap_world: ^World) {
+copy_root :: proc(src_world: ^ecs.World, snap_world: ^ecs.World) {
 	src_archetype := &src_world.archetypes.root.archetype
 	src_chunk_count := len(src_archetype.chunks)
-	dest_node := create_new_archetype(
+	dest_node := ecs.create_new_archetype(
 		snap_world,
 		&snap_world.archetypes,
 		&src_archetype.component_set,
@@ -60,22 +61,22 @@ copy_root :: proc(src_world: ^World, snap_world: ^World) {
 }
 
 copy_types :: proc(
-	src_world: ^World,
-	snap_world: ^World,
+	src_world: ^ecs.World,
+	snap_world: ^ecs.World,
 	allocator: mem.Allocator,
-	node: ^ArchetypeNode = nil,
+	node: ^ecs.ArchetypeNode = nil,
 ) {
 	node := node
 
 	if node == nil {
-		hash := component_set_build_hash([]EntityId{TypeTrait})
+		hash := ecs.component_set_build_hash([]ecs.EntityId{ecs.TypeTrait})
 		ensure(hash in src_world.archetypes.nodes)
 		node = src_world.archetypes.nodes[hash]
 	}
 
 	src_archetype := &node.archetype
 	src_chunk_count := len(src_archetype.chunks)
-	dest_node := create_new_archetype(
+	dest_node := ecs.create_new_archetype(
 		snap_world,
 		&snap_world.archetypes,
 		&src_archetype.component_set,
@@ -86,12 +87,12 @@ copy_types :: proc(
 
 	copy_archetype(src_world, snap_world, src_archetype, &dest_node.archetype)
 
-	it := iter_archetype(src_world, src_archetype, allocator)
+	it := ecs.iter_archetype(src_world, src_archetype, allocator)
 
-	for entity in query_iter_next_entity(&it) {
+	for entity in ecs.query_iter_next_entity(&it) {
 		src_world_type := src_world.ids_to_components[entity]
 
-		ecs_declare_type(snap_world, entity, src_world_type.type, src_world_type.size)
+		ecs.ecs_declare_type(snap_world, entity, src_world_type.type, src_world_type.size)
 	}
 
 	for _, child_hash in node.add_nodes {
@@ -101,7 +102,11 @@ copy_types :: proc(
 	}
 }
 
-copy_archetypes :: proc(src_world: ^World, snap_world: ^World, src_node: ^ArchetypeNode) {
+copy_archetypes :: proc(
+	src_world: ^ecs.World,
+	snap_world: ^ecs.World,
+	src_node: ^ecs.ArchetypeNode,
+) {
 	ensure(!src_node.archetype.is_root)
 
 	src_archetype := &src_node.archetype
@@ -117,35 +122,35 @@ copy_archetypes :: proc(src_world: ^World, snap_world: ^World, src_node: ^Archet
 	}
 
 	for component, _ in src_archetype.component_set.components {
-		if ecs_exists(snap_world, component) {
+		if ecs.ecs_exists(snap_world, component) {
 			continue
 		}
 
 		// this component is not a type and has not been created yet
 		// from another archetype
 
-		if ecs_is_pair(component) {
-			first, second := ecs_pair_split(component)
-			pair_type := ecs_get_pair_type(src_world, component)
+		if ecs.ecs_is_pair(component) {
+			first, second := ecs.ecs_pair_split(component)
+			pair_type := ecs.ecs_get_pair_type(src_world, component)
 
 			if pair_type == 0 {
 				// pair has no type, both parts are regular entities
 				first_entry, first_exists := src_world.entities[first]
 				second_entry, second_exists := src_world.entities[second]
 
-				if first_exists && !ecs_exists(snap_world, first) {
-					ecs_new_with_id(snap_world, first, first_entry.name)
+				if first_exists && !ecs.ecs_exists(snap_world, first) {
+					ecs.ecs_new_with_id(snap_world, first, first_entry.name)
 				}
 
-				if second_exists && !ecs_exists(snap_world, second) {
-					ecs_new_with_id(snap_world, second, second_entry.name)
+				if second_exists && !ecs.ecs_exists(snap_world, second) {
+					ecs.ecs_new_with_id(snap_world, second, second_entry.name)
 				}
 			} else if pair_type == first {
-				ensure(ecs_exists(snap_world, first))
+				ensure(ecs.ecs_exists(snap_world, first))
 				second_entry, second_exists := src_world.entities[second]
 
-				if second_exists && !ecs_exists(snap_world, second) {
-					ecs_new_with_id(snap_world, second, second_entry.name)
+				if second_exists && !ecs.ecs_exists(snap_world, second) {
+					ecs.ecs_new_with_id(snap_world, second, second_entry.name)
 				}
 			} else {
 				panic("NOT SUPPORTED")
@@ -154,12 +159,12 @@ copy_archetypes :: proc(src_world: ^World, snap_world: ^World, src_node: ^Archet
 			entry, exists := src_world.entities[component]
 			ensure(exists)
 
-			ecs_new_with_id(snap_world, component, entry.name)
+			ecs.ecs_new_with_id(snap_world, component, entry.name)
 		}
 	}
 
 	src_chunk_count := len(src_archetype.chunks)
-	dest_node := create_new_archetype(
+	dest_node := ecs.create_new_archetype(
 		snap_world,
 		&snap_world.archetypes,
 		&src_archetype.component_set,
@@ -177,8 +182,13 @@ copy_archetypes :: proc(src_world: ^World, snap_world: ^World, src_node: ^Archet
 	}
 }
 
-copy_archetype :: proc(src_world: ^World, snap_world: ^World, src: ^Archetype, dest: ^Archetype) {
-	when ECS_DEBUG {
+copy_archetype :: proc(
+	src_world: ^ecs.World,
+	snap_world: ^ecs.World,
+	src: ^ecs.Archetype,
+	dest: ^ecs.Archetype,
+) {
+	when ecs.ECS_DEBUG {
 		arch_str := archetype_to_str(src_world, src)
 		defer delete(arch_str)
 
@@ -211,7 +221,7 @@ copy_archetype :: proc(src_world: ^World, snap_world: ^World, src: ^Archetype, d
 	}
 }
 
-copy_chunk :: proc(src: ^Archetype_Chunk, dest: ^Archetype_Chunk) {
+copy_chunk :: proc(src: ^ecs.Archetype_Chunk, dest: ^ecs.Archetype_Chunk) {
 	fmt.ensuref(
 		src.column_count == dest.column_count,
 		"src.column_count == %d, dest.column_count == %d",
@@ -236,8 +246,8 @@ copy_chunk :: proc(src: ^Archetype_Chunk, dest: ^Archetype_Chunk) {
 	}
 }
 
-skip_archetype :: proc(world: ^World, arch: ^Archetype) -> bool {
-	if component_set_has(&arch.component_set, ecs_get_type_id(world, System)) {
+skip_archetype :: proc(world: ^ecs.World, arch: ^ecs.Archetype) -> bool {
+	if ecs.component_set_has(&arch.component_set, ecs.ecs_get_type_id(world, ecs.System)) {
 		return true
 	}
 
