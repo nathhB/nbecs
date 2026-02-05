@@ -57,7 +57,10 @@ query_parse :: proc(
 			term = parse_pair(world, token.str)
 		} else {
 			component, exists := ecs_find(world, token.str)
-			ensure(exists)
+
+			if !exists {
+				fmt.panicf("Failed to parse query: %s does not exist", token.str)
+			}
 
 			term = query_term(world, component)
 			term.not = not
