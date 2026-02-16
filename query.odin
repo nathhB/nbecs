@@ -1,5 +1,6 @@
 package nbecs
 
+import "base:intrinsics"
 import sa "core:container/small_array"
 import "core:log"
 import "core:mem"
@@ -49,7 +50,6 @@ QueryIterator :: struct {
 	matches:          []QueryMatch,
 	current_match:    ^QueryMatch,
 	current_chunk:    ^Archetype_Chunk,
-	current_row:      int,
 	next_chunk_index: int,
 	next_match_index: int,
 }
@@ -110,7 +110,7 @@ query_iter :: proc(query: ^Query) -> QueryIterator {
 	// 	ecs_debug_log("started iterating query: %s", query_str)
 	// }
 
-	return QueryIterator{query.world, query.terms, query.matches[:], nil, nil, 0, 0, 0}
+	return QueryIterator{query.world, query.terms, query.matches[:], nil, nil, 0, 0}
 }
 
 filter_iter :: proc(
@@ -122,7 +122,7 @@ filter_iter :: proc(
 
 	evaluate_terms(world, terms, &matches, allocator)
 
-	return QueryIterator{world, terms, matches[:], nil, nil, 0, 0, 0}
+	return QueryIterator{world, terms, matches[:], nil, nil, 0, 0}
 }
 
 iter_archetype :: proc(
@@ -134,7 +134,7 @@ iter_archetype :: proc(
 
 	matches[0].archetype = archetype
 
-	it := QueryIterator{world, nil, matches, nil, nil, 0, 0, 0}
+	it := QueryIterator{world, nil, matches, nil, nil, 0, 0}
 	query_iter_next_match(&it)
 
 	return it
@@ -146,10 +146,19 @@ query_iter_next_match :: proc(iterator: ^QueryIterator) -> bool {
 	}
 
 	iterator.current_match = &iterator.matches[iterator.next_match_index]
-	iterator.next_match_index += 1
-	iterator.next_chunk_index = 0
-	iterator.current_chunk = nil
-	iterator.current_row = 0
+	archetype := iterator.current_match.archetype
+
+	if iterator.next_chunk_index < len(archetype.chunks) {
+		iterator.current_chunk = archetype.chunks[iterator.next_chunk_index]
+		iterator.next_chunk_index += 1
+
+		return true
+	} else {
+		iterator.next_match_index += 1
+		iterator.next_chunk_index = 0
+
+		return query_iter_next_match(iterator)
+	}
 
 	// when ECS_DEBUG {
 	// 	arch_str := archetype_to_str(iterator.world, iterator.current_match.archetype)
@@ -157,52 +166,16 @@ query_iter_next_match :: proc(iterator: ^QueryIterator) -> bool {
 	//
 	// 	ecs_debug_log("matched archetype: %s %w", arch_str, iterator.current_match)
 	// }
-
-	return true
 }
 
-query_iter_next_entity :: proc(iterator: ^QueryIterator) -> (entity: EntityId, has_more: bool) {
-	ensure(iterator.current_match != nil)
-
-	archetype := iterator.current_match.archetype
-
-	if iterator.current_chunk == nil {
-		if iterator.next_chunk_index >= len(archetype.chunks) {
-			entity = 0
-			has_more = false
-
-			return
-		}
-
-		iterator.current_chunk = archetype.chunks[iterator.next_chunk_index]
-		iterator.next_chunk_index += 1
-	}
-
-	chunk := iterator.current_chunk
-	chunk_count := len(chunk.entities)
-
-	if iterator.current_row < chunk_count {
-		entity = chunk.entities[iterator.current_row]
-		has_more = true
-
-		iterator.current_row += 1
-
-		return
-	}
-
-	// end of chunk reached
-	iterator.current_chunk = nil
-
-	return query_iter_next_entity(iterator)
-}
-
-query_column_index :: proc(iterator: ^QueryIterator, index: int) -> int {
+query_column :: proc(iterator: ^QueryIterator, index: int) -> ^Archetype_Column {
 	ensure(iterator.current_match != nil)
 
 	fields := sa.slice(&iterator.current_match.fields)
 	field := &fields[index]
+	col_idx := (field.(QueryField_ColumnIndex)).index
 
-	return (field.(QueryField_ColumnIndex)).index
+	return &iterator.current_chunk.columns[col_idx]
 }
 
 query_unique_pair_column_index :: proc(iterator: ^QueryIterator, $T: typeid) -> int {
@@ -225,22 +198,12 @@ query_unique_pair_entity :: proc(iterator: ^QueryIterator, index: int) -> Entity
 	return fields[index].(EntityId)
 }
 
-query_entity_data :: proc(iterator: ^QueryIterator, col_idx: int, $T: typeid) -> T {
-	return query_entity_data_mut(iterator, col_idx, T)^
+query_entity_data :: #force_inline proc(col: ^Archetype_Column, row: int, $T: typeid) -> T {
+	return query_entity_data_mut(col, row, T)^
 }
 
-query_entity_data_mut :: proc(iterator: ^QueryIterator, col_idx: int, $T: typeid) -> ^T {
-	chunk := iterator.current_chunk
-	col := &chunk.columns[col_idx]
-	world := iterator.world
-
-	if ecs_is_pair(col.component_id) {
-		ensure(ecs_get_pair_type(world, col.component_id) == ecs_get_type_id(iterator.world, T))
-	} else {
-		ensure(col.component_id == ecs_get_type_id(iterator.world, T))
-	}
-
-	return (^T)(archetype_chunk_get_data(chunk, col_idx, iterator.current_row - 1))
+query_entity_data_mut :: #force_inline proc(col: ^Archetype_Column, row: int, $T: typeid) -> ^T {
+	return (^T)(archetype_column_get_data(col, row))
 }
 
 query_pair :: proc(iterator: ^QueryIterator, col_idx: int) -> (first: EntityId, second: EntityId) {

@@ -119,14 +119,13 @@ archetype_chunk_delete_entity :: proc(chunk: ^Archetype_Chunk, row: int) -> Enti
 	return moved_entity
 }
 
-archetype_chunk_get_data :: proc(chunk: ^Archetype_Chunk, col_idx: int, row: int) -> rawptr {
-	ensure(row < len(chunk.entities))
-	ensure(col_idx < chunk.column_count)
-
-	col := &chunk.columns[col_idx]
-	offset := uintptr(row * col.item_size)
-
-	return rawptr(uintptr(col.rows) + offset)
+archetype_chunk_get_data :: #force_inline proc(
+	chunk: ^Archetype_Chunk,
+	col_idx: int,
+	row: int,
+) -> rawptr {
+	assert(col_idx < chunk.column_count)
+	return archetype_column_get_data(&chunk.columns[col_idx], row)
 }
 
 archetype_chunk_set_data :: proc(chunk: ^Archetype_Chunk, col_idx: int, row: int, data: rawptr) {

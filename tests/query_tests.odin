@@ -212,10 +212,11 @@ query_entity_data_tests :: proc(t: ^testing.T) {
 	it := ecs.query_iter(q1)
 
 	for ecs.query_iter_next_match(&it) {
-		col := ecs.query_column_index(&it, 0)
+		chunk := it.current_chunk
+		col := ecs.query_column(&it, 0)
 
-		for entity in ecs.query_iter_next_entity(&it) {
-			p := ecs.query_entity_data_mut(&it, col, Posseses)
+		for row := 0; row < len(chunk.entities); row += 1 {
+			p := ecs.query_entity_data_mut(col, row, Posseses)
 
 			p.amount *= 2
 		}
@@ -251,9 +252,12 @@ query_unique_pair_entity_tests :: proc(t: ^testing.T) {
 	it := ecs.query_iter(q)
 
 	for ecs.query_iter_next_match(&it) {
+		chunk := it.current_chunk
 		possessed_entity := ecs.query_unique_pair_entity(&it, 0)
 
-		for entity in ecs.query_iter_next_entity(&it) {
+		for row := 0; row < len(chunk.entities); row += 1 {
+			entity := chunk.entities[row]
+
 			if entity == e1 {
 				testing.expect_value(t, possessed_entity, apple)
 			} else if entity == e2 {

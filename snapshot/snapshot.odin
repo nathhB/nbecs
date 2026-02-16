@@ -88,8 +88,10 @@ copy_types :: proc(
 	copy_archetype(src_world, snap_world, src_archetype, &dest_node.archetype)
 
 	it := ecs.iter_archetype(src_world, src_archetype, allocator)
+	chunk := it.current_chunk
 
-	for entity in ecs.query_iter_next_entity(&it) {
+	for row := 0; row < len(chunk.entities); row += 1 {
+		entity := chunk.entities[row]
 		src_world_type := src_world.ids_to_components[entity]
 
 		ecs.ecs_declare_type(snap_world, entity, src_world_type.type, src_world_type.size)

@@ -82,8 +82,8 @@ update_transforms :: proc(
 	dt: f64,
 	ctx: rawptr,
 ) -> bool {
-	transform_col := ecs.query_column_index(it, 0)
-
+	chunk := it.current_chunk
+	transform_col := ecs.query_column(it, 0)
 	parent := ecs.query_get_parent(it)
 	parent_matrix := lin.identity_matrix(Mat3x3)
 	parent_rot: f32 = 0
@@ -95,8 +95,8 @@ update_transforms :: proc(
 		parent_rot = parent_transform.world_rot
 	}
 
-	for entity in ecs.query_iter_next_entity(it) {
-		transform := ecs.query_entity_data_mut(it, transform_col, Transform)
+	for row := 0; row < len(chunk.entities); row += 1 {
+		transform := ecs.query_entity_data_mut(transform_col, row, Transform)
 		world_pos := mul_v2_with_m3(transform.local_pos, parent_matrix)
 
 		transform.world_pos = Vec2{world_pos.x, world_pos.y}
@@ -139,14 +139,15 @@ build_local_rotation_matrix :: proc(transform: Transform) -> Mat3x3 {
 }
 
 draw_rects :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr) -> bool {
-	transform_col := ecs.query_column_index(it, 0)
-	rect_col := ecs.query_column_index(it, 1)
+	chunk := it.current_chunk
+	transform_col := ecs.query_column(it, 0)
+	rect_col := ecs.query_column(it, 1)
 	parent := ecs.query_get_parent(it)
 
-	for entity in ecs.query_iter_next_entity(it) {
-		transform := ecs.query_entity_data(it, transform_col, Transform)
+	for row := 0; row < len(chunk.entities); row += 1 {
+		transform := ecs.query_entity_data(transform_col, row, Transform)
+		size := ecs.query_entity_data(rect_col, row, Rect)
 		world_pos := transform.world_pos
-		size := ecs.query_entity_data(it, rect_col, Rect)
 		width := size.x
 		heigth := size.y
 
@@ -175,8 +176,9 @@ draw_rects :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawp
 }
 
 draw_links :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr) -> bool {
-	transform_col := ecs.query_column_index(it, 0)
-	rect_col := ecs.query_column_index(it, 1)
+	chunk := it.current_chunk
+	transform_col := ecs.query_column(it, 0)
+	rect_col := ecs.query_column(it, 1)
 
 	parent := ecs.query_get_parent(it)
 
@@ -188,9 +190,9 @@ draw_links :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawp
 	parent_size := ecs.ecs_get(world, parent, Rect)
 	parent_pos := parent_transform.world_pos
 
-	for entity in ecs.query_iter_next_entity(it) {
-		transform := ecs.query_entity_data_mut(it, transform_col, Transform)
-		size := ecs.query_entity_data(it, rect_col, Rect)
+	for row := 0; row < len(chunk.entities); row += 1 {
+		transform := ecs.query_entity_data_mut(transform_col, row, Transform)
+		size := ecs.query_entity_data(rect_col, row, Rect)
 
 		rl.DrawLineV(parent_pos, transform.world_pos, rl.BLUE)
 	}
