@@ -60,6 +60,7 @@ Watcher_Proc :: #type proc(
 	world: ^World,
 	entity: EntityId,
 	it: ^QueryIterator,
+	row: int,
 	ctx: rawptr,
 	data: rawptr,
 )
@@ -554,10 +555,11 @@ ecs_emit_data :: proc(world: ^World, event: EntityId, entity: EntityId, data: ra
 	it := filter_iter(world, query_term(world, watcher_pair), allocator = world.temp_allocator)
 
 	for query_iter_next_match(&it) {
-		watcher_col := query_column_index(&it, 0)
+		chunk := it.current_chunk
+		watcher_col := query_column(&it, 0)
 
-		for _ in query_iter_next_entity(&it) {
-			watcher := query_entity_data(&it, watcher_col, Watcher)
+		for row := 0; row < len(chunk.entities); row += 1 {
+			watcher := query_entity_data(watcher_col, row, Watcher)
 
 			if query_matches_archetype(watcher.query, archetype) {
 				match := evaluate_archetype(
@@ -572,14 +574,11 @@ ecs_emit_data :: proc(world: ^World, event: EntityId, entity: EntityId, data: ra
 					[]QueryMatch{match},
 					&match,
 					entry.chunk,
-					entry.row,
 					0,
 					0,
 				}
 
-				next_entity, _ := query_iter_next_entity(&it2)
-				ensure(next_entity == entity)
-				watcher.procedure(world, entity, &it2, watcher.ctx, data)
+				watcher.procedure(world, entity, &it2, entry.row, watcher.ctx, data)
 			}
 		}
 	}
@@ -1081,10 +1080,11 @@ ecs_update :: proc(world: ^World, dt: f64, pipeline := Pipeline_Default) {
 	it := query_iter(pipeline.query)
 
 	for query_iter_next_match(&it) {
-		col := query_column_index(&it, 0)
+		chunk := it.current_chunk
+		col := query_column(&it, 0)
 
-		for _ in query_iter_next_entity(&it) {
-			system := query_entity_data(&it, col, System)
+		for row := 0; row < len(chunk.entities); row += 1 {
+			system := query_entity_data(col, row, System)
 
 			ecs_update_system(world, &system, dt)
 		}
@@ -1143,8 +1143,10 @@ ecs_get_children :: proc(
 	children := make([dynamic]EntityId, allocator = allocator)
 
 	for query_iter_next_match(&it) {
-		for child in query_iter_next_entity(&it) {
-			append(&children, child)
+		chunk := it.current_chunk
+
+		for row := 0; row < len(chunk.entities); row += 1 {
+			append(&children, chunk.entities[row])
 		}
 	}
 

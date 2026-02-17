@@ -153,10 +153,11 @@ system_pipelines_str_tests :: proc(t: ^testing.T) {
 }
 
 system1 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr) -> bool {
-	foo_col := ecs.query_column_index(it, 0)
+	chunk := it.current_chunk
+	foo_col := ecs.query_column(it, 0)
 
-	for entity in ecs.query_iter_next_entity(it) {
-		foo := ecs.query_entity_data_mut(it, foo_col, Foo)
+	for row := 0; row < len(chunk.entities); row += 1 {
+		foo := ecs.query_entity_data_mut(foo_col, row, Foo)
 
 		foo.v *= 2
 	}
@@ -165,12 +166,13 @@ system1 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr)
 }
 
 system2 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr) -> bool {
-	foo_col := ecs.query_column_index(it, 0)
-	bar_col := ecs.query_column_index(it, 1)
+	chunk := it.current_chunk
+	foo_col := ecs.query_column(it, 0)
+	bar_col := ecs.query_column(it, 1)
 
-	for entity in ecs.query_iter_next_entity(it) {
-		foo := ecs.query_entity_data_mut(it, foo_col, Foo)
-		bar := ecs.query_entity_data_mut(it, bar_col, Bar)
+	for row := 0; row < len(chunk.entities); row += 1 {
+		foo := ecs.query_entity_data_mut(foo_col, row, Foo)
+		bar := ecs.query_entity_data_mut(bar_col, row, Bar)
 
 		foo.v += 50
 		bar.v += 100
@@ -180,10 +182,11 @@ system2 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr)
 }
 
 system3 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr) -> bool {
-	foo_col := ecs.query_column_index(it, 0)
+	chunk := it.current_chunk
+	foo_col := ecs.query_column(it, 0)
 
-	for entity in ecs.query_iter_next_entity(it) {
-		foo := ecs.query_entity_data_mut(it, foo_col, Foo)
+	for row := 0; row < len(chunk.entities); row += 1 {
+		foo := ecs.query_entity_data_mut(foo_col, row, Foo)
 
 		foo.v += 5
 	}
@@ -192,10 +195,11 @@ system3 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr)
 }
 
 system4 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr) -> bool {
-	foo_col := ecs.query_column_index(it, 0)
+	chunk := it.current_chunk
+	foo_col := ecs.query_column(it, 0)
 
-	for entity in ecs.query_iter_next_entity(it) {
-		foo := ecs.query_entity_data_mut(it, foo_col, Foo)
+	for row := 0; row < len(chunk.entities); row += 1 {
+		foo := ecs.query_entity_data_mut(foo_col, row, Foo)
 
 		foo.v -= 10
 	}

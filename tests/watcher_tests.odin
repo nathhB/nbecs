@@ -4,6 +4,8 @@ import ecs ".."
 import "core:log"
 import "core:testing"
 
+// TODO:
+
 Watcher_Context :: struct {
 	foo_count: int,
 	bar_count: int,
@@ -52,13 +54,13 @@ on_deleted_foo :: proc(
 	world: ^ecs.World,
 	entity: ecs.EntityId,
 	it: ^ecs.QueryIterator,
+	row: int,
 	ctx: rawptr,
 	data: rawptr,
 ) {
 	ctx := (^Watcher_Context)(ctx)
-
-	foo_col := ecs.query_column_index(it, 0)
-	foo := ecs.query_entity_data(it, foo_col, Foo)
+	foo_col := ecs.query_column(it, 0)
+	foo := ecs.query_entity_data(foo_col, row, Foo)
 
 	testing.expect(ctx.t, entity == ctx.e1 || entity == ctx.e2)
 
@@ -75,15 +77,15 @@ on_deleted_foo_bar :: proc(
 	world: ^ecs.World,
 	entity: ecs.EntityId,
 	it: ^ecs.QueryIterator,
+	row: int,
 	ctx: rawptr,
 	data: rawptr,
 ) {
 	ctx := (^Watcher_Context)(ctx)
-
-	foo_col := ecs.query_column_index(it, 0)
-	bar_col := ecs.query_column_index(it, 1)
-	foo := ecs.query_entity_data(it, foo_col, Foo)
-	bar := ecs.query_entity_data(it, bar_col, Bar)
+	foo_col := ecs.query_column(it, 0)
+	bar_col := ecs.query_column(it, 1)
+	foo := ecs.query_entity_data(foo_col, row, Foo)
+	bar := ecs.query_entity_data(bar_col, row, Bar)
 
 	testing.expect(ctx.t, entity == ctx.e2)
 

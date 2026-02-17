@@ -183,6 +183,12 @@ archetype_get_pairs :: proc(archetype: ^Archetype, entity: EntityId) -> []Entity
 	return pairs[:]
 }
 
+archetype_column_get_data :: #force_inline proc(col: ^Archetype_Column, row: int) -> rawptr {
+	offset := uintptr(row * col.item_size)
+
+	return rawptr(uintptr(col.rows) + offset)
+}
+
 compute_chunk_capacity :: proc(world: ^World, component_set: ^ComponentSet) -> int {
 	chunk_overhead := size_of(Archetype_Chunk)
 	entity_size := size_of(EntityId)

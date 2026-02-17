@@ -153,7 +153,10 @@ expect_query_matched_entities :: proc(
 	it := ecs.query_iter(query)
 
 	for ecs.query_iter_next_match(&it) {
-		for entity in ecs.query_iter_next_entity(&it) {
+		chunk := it.current_chunk
+
+		for row := 0; row < len(chunk.entities); row += 1 {
+			entity := chunk.entities[row]
 			match_count += 1
 
 			testing.expectf(
@@ -187,7 +190,11 @@ expect_query_matched_entities_in_order :: proc(
 	defer delete(matched_entities)
 
 	for ecs.query_iter_next_match(&it) {
-		for entity in ecs.query_iter_next_entity(&it) {
+		chunk := it.current_chunk
+
+		for row := 0; row < len(chunk.entities); row += 1 {
+			entity := chunk.entities[row]
+
 			append(&matched_entities, entity)
 		}
 	}
@@ -214,7 +221,10 @@ expect_filter_matched_entities :: proc(
 	it := ecs.filter_iter(world, ..terms, allocator = context.temp_allocator)
 
 	for ecs.query_iter_next_match(&it) {
-		for entity in ecs.query_iter_next_entity(&it) {
+		chunk := it.current_chunk
+
+		for row := 0; row < len(chunk.entities); row += 1 {
+			entity := chunk.entities[row]
 			match_count += 1
 
 			testing.expectf(
