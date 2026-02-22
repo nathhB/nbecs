@@ -97,19 +97,15 @@ archetype_chunk_delete_entity :: proc(chunk: ^Archetype_Chunk, row: int) -> Enti
 	chunk_count := len(chunk.entities)
 	delete_last := row == chunk_count - 1
 
-	for col_idx := 0; col_idx < chunk.column_count; col_idx += 1 {
-		if delete_last {
-			continue
+	if !delete_last {
+		for col_idx := 0; col_idx < chunk.column_count; col_idx += 1 {
+			col := &chunk.columns[col_idx]
+			last_row := archetype_chunk_get_data(chunk, col_idx, chunk_count - 1)
+			dest_row := archetype_chunk_get_data(chunk, col_idx, row)
+
+			mem.copy(dest_row, last_row, col.item_size)
 		}
 
-		col := &chunk.columns[col_idx]
-		last_row := archetype_chunk_get_data(chunk, col_idx, chunk_count - 1)
-		dest_row := archetype_chunk_get_data(chunk, col_idx, row)
-
-		mem.copy(dest_row, last_row, col.item_size)
-	}
-
-	if !delete_last {
 		moved_entity = chunk.entities[chunk_count - 1]
 	}
 

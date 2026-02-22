@@ -76,17 +76,23 @@ World :: struct {
 	queries:             [dynamic]^Query,
 	ctx:                 rawptr,
 	pipelines:           map[EntityId]Pipeline,
-	config:              WorldConfig,
+	config:              World_Config,
 	arena:               vmem.Arena,
 	temp_allocator:      mem.Allocator,
 	allocator:           mem.Allocator,
 	frozen:              bool,
 	snapshot:            bool,
+	info:                World_Info,
 }
 
-WorldConfig :: struct {
+World_Config :: struct {
 	default_delete_strategy: EntityId,
 	id_range:                [2]EntityId,
+}
+
+World_Info :: struct {
+	entity_count:    int,
+	archetype_count: int,
 }
 
 Pipeline :: struct {
@@ -1091,6 +1097,9 @@ ecs_update :: proc(world: ^World, dt: f64, pipeline := Pipeline_Default) {
 	}
 
 	free_all(world.temp_allocator)
+
+	world.info.entity_count = len(world.entities)
+	world.info.archetype_count = len(world.archetypes.nodes)
 }
 
 ecs_update_system :: proc(world: ^World, system_data: ^System, dt: f64) {

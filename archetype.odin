@@ -133,6 +133,9 @@ archetype_delete_entity :: proc(
 	moved_entity := archetype_chunk_delete_entity(chunk, row)
 
 	if len(chunk.entities) == 0 && len(archetype.chunks) > 1 {
+		last_chunk := archetype.chunks[len(archetype.chunks) - 1]
+		last_chunk.index = chunk.index
+
 		unordered_remove(&archetype.chunks, chunk.index)
 
 		if chunk == archetype.active_chunk {

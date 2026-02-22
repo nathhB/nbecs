@@ -178,15 +178,16 @@ query_column :: proc(iterator: ^QueryIterator, index: int) -> ^Archetype_Column 
 	return &iterator.current_chunk.columns[col_idx]
 }
 
-query_unique_pair_column_index :: proc(iterator: ^QueryIterator, $T: typeid) -> int {
+query_unique_pair_column :: proc(iterator: ^QueryIterator, $T: typeid) -> ^Archetype_Column {
 	ensure(iterator.current_match != nil)
 
 	archetype := iterator.current_match.archetype
 	pair := archetype_get_pair(archetype, ecs_get_type_id(iterator.world, T))
 	ensure(pair > 0)
 	ensure(pair in archetype.component_column_map)
+	col_idx := archetype.component_column_map[pair]
 
-	return archetype.component_column_map[pair]
+	return &iterator.current_chunk.columns[col_idx]
 }
 
 query_unique_pair_entity :: proc(iterator: ^QueryIterator, index: int) -> EntityId {
@@ -206,9 +207,14 @@ query_entity_data_mut :: #force_inline proc(col: ^Archetype_Column, row: int, $T
 	return (^T)(archetype_column_get_data(col, row))
 }
 
-query_pair :: proc(iterator: ^QueryIterator, col_idx: int) -> (first: EntityId, second: EntityId) {
+query_pair :: proc(
+	iterator: ^QueryIterator,
+	col: ^Archetype_Column,
+) -> (
+	first: EntityId,
+	second: EntityId,
+) {
 	chunk := iterator.current_chunk
-	col := &chunk.columns[col_idx]
 
 	ensure(ecs_is_pair(col.component_id))
 
