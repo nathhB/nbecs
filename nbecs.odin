@@ -677,10 +677,21 @@ ecs_is_tag :: proc(world: ^World, entity: EntityId) -> bool {
 	return !ecs_is_type(world, entity)
 }
 
-ecs_get_component_type :: proc(world: ^World, $T: typeid) -> ComponentType {
+ecs_get_component_type :: proc {
+	ecs_get_component_type_by_id,
+	ecs_get_component_type_by_type,
+}
+
+ecs_get_component_type_by_type :: proc(world: ^World, $T: typeid) -> ComponentType {
 	ensure(T in world.types_to_components)
 
 	return world.types_to_components[T]
+}
+
+ecs_get_component_type_by_id :: proc(world: ^World, id: EntityId) -> ComponentType {
+	ensure(id in world.ids_to_components)
+
+	return world.ids_to_components[id]
 }
 
 ecs_get_type_id :: proc(world: ^World, $T: typeid) -> EntityId {
