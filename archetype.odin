@@ -33,7 +33,7 @@ archetype_init :: proc(
 	is_root := false,
 	allocator := context.allocator,
 ) {
-	ensure(chunk_count > 0)
+	assert(chunk_count > 0)
 
 	archetype.is_root = is_root
 	archetype.component_set = component_set^
@@ -139,7 +139,7 @@ archetype_delete_entity :: proc(
 		unordered_remove(&archetype.chunks, chunk.index)
 
 		if chunk == archetype.active_chunk {
-			ensure(chunk.index == archetype.active_chunk.index)
+			assert(chunk.index == archetype.active_chunk.index)
 
 			archetype.active_chunk = archetype.chunks[0]
 		}
@@ -155,7 +155,7 @@ archetype_delete_entity :: proc(
 }
 
 archetype_get_pair :: proc(archetype: ^Archetype, entity: EntityId) -> EntityId {
-	ensure(!ecs_is_pair(entity))
+	assert(!ecs_is_pair(entity))
 
 	if archetype.pairs == nil {
 		return 0
@@ -171,7 +171,7 @@ archetype_get_pair :: proc(archetype: ^Archetype, entity: EntityId) -> EntityId 
 }
 
 archetype_get_pairs :: proc(archetype: ^Archetype, entity: EntityId) -> []EntityId {
-	ensure(!ecs_is_pair(entity))
+	assert(!ecs_is_pair(entity))
 
 	if archetype.pairs == nil {
 		return nil
@@ -237,7 +237,7 @@ get_or_create_chunk :: proc(world: ^World, archetype: ^Archetype) -> ^Archetype_
 
 @(private = "file")
 add_pair :: proc(world: ^World, archetype: ^Archetype, pair: EntityId) {
-	ensure(ecs_is_pair(pair))
+	assert(ecs_is_pair(pair))
 
 	if archetype.pairs == nil {
 		archetype.pairs = make(map[EntityId]Pair_Array, archetype.allocator)
@@ -250,7 +250,7 @@ add_pair :: proc(world: ^World, archetype: ^Archetype, pair: EntityId) {
 	}
 
 	if first == ChildOf_Id {
-		ensure(ecs_exists(world, second))
+		assert(ecs_exists(world, second))
 
 		archetype.depth = ecs_get_entity_depth(world, second) + 1
 	}

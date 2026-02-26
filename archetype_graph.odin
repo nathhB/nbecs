@@ -60,7 +60,7 @@ archetype_graph_add :: proc(
 
 	if !exists {
 		set := set_add(&src_node.archetype.component_set, component_id, graph.allocator)
-		ensure(set.hash == hash)
+		assert(set.hash == hash)
 		target_node = create_new_archetype(world, graph, &set)
 	}
 
@@ -79,19 +79,19 @@ archetype_graph_remove :: proc(
 	target_node_hash, exists := src_node.rm_nodes[component_id]
 
 	if exists {
-		ensure(target_node_hash in graph.nodes)
+		assert(target_node_hash in graph.nodes)
 
 		return graph.nodes[target_node_hash]
 	}
 
 	hash := set_build_hash_rm(&src_node.archetype.component_set, component_id)
-	ensure(hash != src_node.archetype.component_set.hash)
+	assert(hash != src_node.archetype.component_set.hash)
 	target_node: ^ArchetypeNode
 	target_node, exists = graph.nodes[hash]
 
 	if !exists {
 		set := set_remove(&src_node.archetype.component_set, component_id, graph.allocator)
-		ensure(set.hash == hash)
+		assert(set.hash == hash)
 		target_node = create_new_archetype(world, graph, &set)
 	}
 
@@ -108,9 +108,9 @@ archetype_graph_replace :: proc(
 	rm_entity: EntityId,
 	add_entity: EntityId,
 ) -> ^ArchetypeNode {
-	ensure(archetype_has(&src_node.archetype, rm_entity))
+	assert(archetype_has(&src_node.archetype, rm_entity))
 	hash := set_build_hash_replace(&src_node.archetype.component_set, rm_entity, add_entity)
-	ensure(hash != src_node.archetype.component_set.hash)
+	assert(hash != src_node.archetype.component_set.hash)
 	target_node, exists := graph.nodes[hash]
 
 	if !exists {
@@ -120,7 +120,7 @@ archetype_graph_replace :: proc(
 			add_entity,
 			graph.allocator,
 		)
-		ensure(set.hash == hash)
+		assert(set.hash == hash)
 		target_node = create_new_archetype(world, graph, &set)
 	}
 
@@ -153,7 +153,7 @@ archetype_graph_cleanup :: proc(
 ) {
 	node, exists := graph.nodes[hash]
 
-	ensure(exists)
+	assert(exists)
 
 	for _, prev_hash in node.rm_nodes {
 		if prev_hash not_in graph.nodes {
@@ -175,7 +175,7 @@ archetype_graph_cleanup :: proc(
 }
 
 create_new_node :: proc(graph: ^ArchetypeGraph, hash: u64, is_root: bool) -> ^ArchetypeNode {
-	ensure(hash not_in graph.nodes)
+	assert(hash not_in graph.nodes)
 
 	node := new(ArchetypeNode, graph.allocator)
 
@@ -185,7 +185,7 @@ create_new_node :: proc(graph: ^ArchetypeGraph, hash: u64, is_root: bool) -> ^Ar
 	graph.nodes[hash] = node
 
 	if is_root {
-		ensure(graph.root == nil)
+		assert(graph.root == nil)
 
 		graph.root = node
 	}

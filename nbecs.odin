@@ -257,7 +257,6 @@ ecs_delete :: proc(world: ^World, entity: EntityId, by_user := true) {
 
 	if entry.name != "" {
 		ensure(entry.name in world.names_index)
-
 		delete_key(&world.names_index, entry.name)
 	}
 
@@ -855,6 +854,7 @@ ecs_set_with_id :: proc(world: ^World, entity: EntityId, component_id: EntityId,
 		panic("Attempted to modify a frozen world")
 	}
 
+	ensure(ecs_is_valid(world, entity))
 	ensure(ecs_is_pair(component_id) || ecs_is_type(world, component_id))
 
 	ecs_add(world, entity, component_id)
