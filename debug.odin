@@ -123,13 +123,13 @@ archetype_chunk_to_str :: proc(world: ^World, chunk: ^Archetype_Chunk) -> string
 	return strings.clone(str)
 }
 
-component_set_to_str :: proc(world: ^World, set: ^ComponentSet) -> string {
+component_set_to_str :: proc(world: ^World, set: ^Component_Set) -> string {
 	sb := strings.Builder{}
 
 	strings.builder_init(&sb)
 	defer strings.builder_destroy(&sb)
 
-	component_ids := component_set_to_arr(set)
+	component_ids := set_to_arr(set)
 	defer delete(component_ids)
 
 	strings.write_string(&sb, "[")
@@ -189,7 +189,7 @@ query_to_str :: proc(query: ^Query) -> string {
 	return strings.clone(str)
 }
 
-query_term_str :: proc(world: ^World, term: QueryTerm) -> string {
+query_term_str :: proc(world: ^World, term: Query_Term) -> string {
 	sb := strings.Builder{}
 
 	strings.builder_init(&sb)

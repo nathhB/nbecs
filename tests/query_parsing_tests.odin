@@ -22,32 +22,20 @@ query_parse_tests :: proc(t: ^testing.T) {
 	query4 := ecs.query_parse(world, "Plop (Foo, Plap)")
 	query5 := ecs.query_parse(world, "?Plop !Foo ?Bar")
 
-	check_query_terms(
-		t,
-		query1,
-		ecs.query_term(world, Foo),
-		ecs.query_term(world, Bar),
-		ecs.query_term(world, plap),
-	)
-	check_query_terms(
-		t,
-		query2,
-		ecs.query_term(world, Bar),
-		ecs.query_term(world, plop),
-		ecs.query_term(world, Foo),
-	)
+	check_terms(t, query1, ecs.term(world, Foo), ecs.term(world, Bar), ecs.term(world, plap))
+	check_terms(t, query2, ecs.term(world, Bar), ecs.term(world, plop), ecs.term(world, Foo))
 
-	neg_foo := ecs.query_term(world, Foo)
+	neg_foo := ecs.term(world, Foo)
 	neg_foo.not = true
 
-	check_query_terms(t, query3, ecs.query_term(world, Bar), ecs.query_term(world, plop), neg_foo)
-	check_query_terms(t, query4, ecs.query_term(world, plop), ecs.query_term(world, foo, plap))
-	check_query_terms(
+	check_terms(t, query3, ecs.term(world, Bar), ecs.term(world, plop), neg_foo)
+	check_terms(t, query4, ecs.term(world, plop), ecs.term(world, foo, plap))
+	check_terms(
 		t,
 		query5,
-		ecs.query_term(world, plop, optional = true),
+		ecs.term(world, plop, optional = true),
 		neg_foo,
-		ecs.query_term(world, Bar, optional = true),
+		ecs.term(world, Bar, optional = true),
 	)
 }
 
@@ -60,10 +48,10 @@ cleanup_query_string_tests :: proc(t: ^testing.T) {
 	check_parsed_query_tokens(t, "    ?Foo !Bar     ", "?Foo", "!Bar")
 }
 
-check_query_terms :: proc(
+check_terms :: proc(
 	t: ^testing.T,
 	query: ^ecs.Query,
-	expected_terms: ..ecs.QueryTerm,
+	expected_terms: ..ecs.Query_Term,
 	loc := #caller_location,
 ) {
 	expected_term_count := len(expected_terms) + 1 // '!Prefab' is always added to queries

@@ -24,8 +24,8 @@ systems_tests :: proc(t: ^testing.T) {
 	ecs.ecs_set(world, e2, &Foo{100})
 	ecs.ecs_set(world, e2, &Bar{200})
 
-	ecs.ecs_system(world, system1, ecs.query_term(world, Foo))
-	ecs.ecs_system(world, system2, ecs.query_term(world, Foo), ecs.query_term(world, Bar))
+	ecs.ecs_system(world, system1, ecs.term(world, Foo))
+	ecs.ecs_system(world, system2, ecs.term(world, Foo), ecs.term(world, Bar))
 
 	ecs.ecs_update(world, 0)
 	ecs.ecs_update(world, 0)
@@ -50,9 +50,9 @@ system_pipelines_tests :: proc(t: ^testing.T) {
 	ecs.ecs_set(world, e1, &Foo{10})
 	ecs.ecs_set(world, e2, &Foo{100})
 
-	ecs.ecs_system(world, system1, ecs.query_term(world, Foo)) // default pipeline
-	ecs.ecs_system(world, system3, pip1, ecs.query_term(world, Foo))
-	ecs.ecs_system(world, system4, pip2, ecs.query_term(world, Foo))
+	ecs.ecs_system(world, system1, ecs.term(world, Foo)) // default pipeline
+	ecs.ecs_system(world, system3, pip1, ecs.term(world, Foo))
+	ecs.ecs_system(world, system4, pip2, ecs.term(world, Foo))
 
 	ecs.ecs_update(world, 0) // default pipeline
 
@@ -152,12 +152,12 @@ system_pipelines_str_tests :: proc(t: ^testing.T) {
 	testing.expect_value(t, ecs.ecs_get(world, e2, Foo).v, 195)
 }
 
-system1 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr) -> bool {
+system1 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr) -> bool {
 	chunk := it.current_chunk
-	foo_col := ecs.query_column(it, 0)
+	foo_col := ecs.column(it, 0)
 
 	for row := 0; row < len(chunk.entities); row += 1 {
-		foo := ecs.query_entity_data_mut(foo_col, row, Foo)
+		foo := ecs.row_data_mut(foo_col, row, Foo)
 
 		foo.v *= 2
 	}
@@ -165,14 +165,14 @@ system1 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr)
 	return true
 }
 
-system2 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr) -> bool {
+system2 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr) -> bool {
 	chunk := it.current_chunk
-	foo_col := ecs.query_column(it, 0)
-	bar_col := ecs.query_column(it, 1)
+	foo_col := ecs.column(it, 0)
+	bar_col := ecs.column(it, 1)
 
 	for row := 0; row < len(chunk.entities); row += 1 {
-		foo := ecs.query_entity_data_mut(foo_col, row, Foo)
-		bar := ecs.query_entity_data_mut(bar_col, row, Bar)
+		foo := ecs.row_data_mut(foo_col, row, Foo)
+		bar := ecs.row_data_mut(bar_col, row, Bar)
 
 		foo.v += 50
 		bar.v += 100
@@ -181,12 +181,12 @@ system2 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr)
 	return true
 }
 
-system3 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr) -> bool {
+system3 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr) -> bool {
 	chunk := it.current_chunk
-	foo_col := ecs.query_column(it, 0)
+	foo_col := ecs.column(it, 0)
 
 	for row := 0; row < len(chunk.entities); row += 1 {
-		foo := ecs.query_entity_data_mut(foo_col, row, Foo)
+		foo := ecs.row_data_mut(foo_col, row, Foo)
 
 		foo.v += 5
 	}
@@ -194,12 +194,12 @@ system3 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr)
 	return true
 }
 
-system4 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr) -> bool {
+system4 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr) -> bool {
 	chunk := it.current_chunk
-	foo_col := ecs.query_column(it, 0)
+	foo_col := ecs.column(it, 0)
 
 	for row := 0; row < len(chunk.entities); row += 1 {
-		foo := ecs.query_entity_data_mut(foo_col, row, Foo)
+		foo := ecs.row_data_mut(foo_col, row, Foo)
 
 		foo.v -= 10
 	}
@@ -207,14 +207,14 @@ system4 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr)
 	return true
 }
 
-system5 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr) -> bool {
+system5 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr) -> bool {
 	system_ctx := (^System_Context)(ctx)
 
 	system_ctx.value *= 10
 	return true
 }
 
-system6 :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr) -> bool {
+system6 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr) -> bool {
 	system_ctx := (^System_Context)(ctx)
 
 	system_ctx.value *= 100

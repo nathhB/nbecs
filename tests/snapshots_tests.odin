@@ -42,23 +42,13 @@ world_snapshot_tests :: proc(t: ^testing.T) {
 	testing.expect_value(t, clone_arch2.chunks[0].entities[0], e2)
 	testing.expect_value(t, clone_arch3.chunks[0].entities[0], e3)
 
-	expect_filter_matched_entities(
-		t,
-		snapshot,
-		[]ecs.EntityId{e1, e2},
-		ecs.query_term(snapshot, foo),
-	)
-	expect_filter_matched_entities(
-		t,
-		snapshot,
-		[]ecs.EntityId{e1, e3},
-		ecs.query_term(snapshot, bar),
-	)
+	expect_filter_matched_entities(t, snapshot, []ecs.EntityId{e1, e2}, ecs.term(snapshot, foo))
+	expect_filter_matched_entities(t, snapshot, []ecs.EntityId{e1, e3}, ecs.term(snapshot, bar))
 	expect_filter_matched_entities(
 		t,
 		snapshot,
 		[]ecs.EntityId{e1},
-		ecs.query_term(snapshot, foo),
-		ecs.query_term(snapshot, bar),
+		ecs.term(snapshot, foo),
+		ecs.term(snapshot, bar),
 	)
 }

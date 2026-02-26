@@ -28,7 +28,7 @@ query_parse :: proc(
 	defer delete(tokens)
 	ensure(err == .None)
 
-	terms := make([dynamic]QueryTerm, allocator)
+	terms := make([dynamic]Query_Term, allocator)
 	defer delete(terms)
 
 	for token in tokens {
@@ -51,10 +51,10 @@ query_parse :: proc(
 			is_pair = true
 		}
 
-		term: QueryTerm
+		t: Query_Term
 
 		if is_pair {
-			term = parse_pair(world, token.str)
+			t = parse_pair(world, token.str)
 		} else {
 			component, exists := ecs_find(world, token.str)
 
@@ -62,12 +62,12 @@ query_parse :: proc(
 				fmt.panicf("Failed to parse query: %s does not exist", token.str)
 			}
 
-			term = query_term(world, component)
-			term.not = not
-			term.optional = optional
+			t = term(world, component)
+			t.not = not
+			t.optional = optional
 		}
 
-		append(&terms, term)
+		append(&terms, t)
 	}
 
 	return query_build(world, ..terms[:], cascade = cascade, allocator = allocator)
@@ -116,7 +116,7 @@ tokenize_query_string :: proc(
 	return tokens[0:token_count], .None
 }
 
-parse_pair :: proc(world: ^World, pair_str: string, allocator := context.allocator) -> QueryTerm {
+parse_pair :: proc(world: ^World, pair_str: string, allocator := context.allocator) -> Query_Term {
 	parts, err := strings.split(pair_str, ",", allocator)
 	ensure(err == .None)
 	defer delete(parts)
@@ -133,5 +133,5 @@ parse_pair :: proc(world: ^World, pair_str: string, allocator := context.allocat
 	second, exists = ecs_find(world, second_name)
 	ensure(exists)
 
-	return query_term(world, first, second)
+	return term(world, first, second)
 }

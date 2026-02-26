@@ -54,12 +54,12 @@ EntityId_Flags :: enum u8 {
 }
 
 ArchetypeMap :: #type map[u64]^Archetype
-System_Proc :: #type proc(world: ^World, it: ^QueryIterator, dt: f64, ctx: rawptr) -> bool
+System_Proc :: #type proc(world: ^World, it: ^Query_Iterator, dt: f64, ctx: rawptr) -> bool
 System_Hook_Proc :: #type proc(world: ^World, dt: f64, ctx: rawptr)
 Watcher_Proc :: #type proc(
 	world: ^World,
 	entity: EntityId,
-	it: ^QueryIterator,
+	it: ^Query_Iterator,
 	row: int,
 	ctx: rawptr,
 	data: rawptr,
@@ -209,8 +209,8 @@ ecs_pipeline :: proc(world: ^World, name: string) -> EntityId {
 	entity := ecs_new(world, name)
 	query := query_build(
 		world,
-		query_term(world, System),
-		query_term(world, entity),
+		term(world, System),
+		term(world, entity),
 		allocator = world.allocator,
 	)
 
@@ -324,7 +324,7 @@ ecs_system_default :: proc(
 	world: ^World,
 	procedure: System_Proc,
 	ctx: rawptr,
-	terms: ..QueryTerm,
+	terms: ..Query_Term,
 	before_update_proc: System_Hook_Proc = nil,
 	after_update_proc: System_Hook_Proc = nil,
 	cascade := false,
@@ -346,7 +346,7 @@ ecs_system_pipeline :: proc(
 	procedure: System_Proc,
 	pipeline: EntityId,
 	ctx: rawptr,
-	terms: ..QueryTerm,
+	terms: ..Query_Term,
 	before_update_proc: System_Hook_Proc = nil,
 	after_update_proc: System_Hook_Proc = nil,
 	cascade := false,
@@ -406,7 +406,7 @@ ecs_system_pipeline_str :: proc(
 ecs_system_default_no_ctx :: proc(
 	world: ^World,
 	procedure: System_Proc,
-	terms: ..QueryTerm,
+	terms: ..Query_Term,
 	before_update_proc: System_Hook_Proc = nil,
 	after_update_proc: System_Hook_Proc = nil,
 	cascade := false,
@@ -426,7 +426,7 @@ ecs_system_pipeline_no_ctx :: proc(
 	world: ^World,
 	procedure: System_Proc,
 	pipeline: EntityId,
-	terms: ..QueryTerm,
+	terms: ..Query_Term,
 	before_update_proc: System_Hook_Proc = nil,
 	after_update_proc: System_Hook_Proc = nil,
 	cascade := false,
@@ -495,7 +495,7 @@ ecs_watch_no_ctx :: proc(
 	world: ^World,
 	event: EntityId,
 	procedure: Watcher_Proc,
-	terms: ..QueryTerm,
+	terms: ..Query_Term,
 ) {
 	ecs_watch_ctx(world, event, procedure, nil, ..terms)
 }
@@ -514,7 +514,7 @@ ecs_watch_ctx :: proc(
 	event: EntityId,
 	procedure: Watcher_Proc,
 	ctx: rawptr,
-	terms: ..QueryTerm,
+	terms: ..Query_Term,
 ) {
 	query := query_build(world, ..terms, allocator = world.allocator)
 
@@ -558,14 +558,13 @@ ecs_emit_data :: proc(world: ^World, event: EntityId, entity: EntityId, data: ra
 	archetype := entry.chunk.archetype
 
 	watcher_pair := ecs_build_pair(world, Watcher, event)
-	it := filter_iter(world, query_term(world, watcher_pair), allocator = world.temp_allocator)
+	it := filter_iter(world, term(world, watcher_pair), allocator = world.temp_allocator)
 
-	for query_iter_next_match(&it) {
-		chunk := it.current_chunk
-		watcher_col := query_column(&it, 0)
+	for chunk in iter_next_chunk(&it) {
+		watcher_col := column(&it, 0)
 
 		for row := 0; row < len(chunk.entities); row += 1 {
-			watcher := query_entity_data(watcher_col, row, Watcher)
+			watcher := row_data(watcher_col, row, Watcher)
 
 			if query_matches_archetype(watcher.query, archetype) {
 				match := evaluate_archetype(
@@ -574,10 +573,10 @@ ecs_emit_data :: proc(world: ^World, event: EntityId, entity: EntityId, data: ra
 					archetype,
 					world.temp_allocator,
 				) or_continue
-				it2 := QueryIterator {
+				it2 := Query_Iterator {
 					world,
 					watcher.query.terms,
-					[]QueryMatch{match},
+					[]Query_Match{match},
 					&match,
 					entry.chunk,
 					0,
@@ -1096,12 +1095,11 @@ ecs_update :: proc(world: ^World, dt: f64, pipeline := Pipeline_Default) {
 
 	it := query_iter(pipeline.query)
 
-	for query_iter_next_match(&it) {
-		chunk := it.current_chunk
-		col := query_column(&it, 0)
+	for chunk in iter_next_chunk(&it) {
+		col := column(&it, 0)
 
 		for row := 0; row < len(chunk.entities); row += 1 {
-			system := query_entity_data(col, row, System)
+			system := row_data(col, row, System)
 
 			ecs_update_system(world, &system, dt)
 		}
@@ -1123,7 +1121,7 @@ ecs_update_system :: proc(world: ^World, system_data: ^System, dt: f64) {
 	} else {
 		it := query_iter(system_data.query)
 
-		for query_iter_next_match(&it) {
+		for _ in iter_next_chunk(&it) {
 			system_data.update_proc(world, &it, dt, system_data.ctx)
 		}
 	}
@@ -1158,13 +1156,11 @@ ecs_get_children :: proc(
 	allocator := context.allocator,
 ) -> []EntityId {
 	childof_pair := ecs_build_pair(ChildOf_Id, entity)
-	it := filter_iter(world, query_term(world, childof_pair), allocator = allocator)
+	it := filter_iter(world, term(world, childof_pair), allocator = allocator)
 
 	children := make([dynamic]EntityId, allocator = allocator)
 
-	for query_iter_next_match(&it) {
-		chunk := it.current_chunk
-
+	for chunk in iter_next_chunk(&it) {
 		for row := 0; row < len(chunk.entities); row += 1 {
 			append(&children, chunk.entities[row])
 		}
@@ -1459,11 +1455,11 @@ handle_relationship_deleted :: proc(
 	if strategy == DeleteStrategy_Remove {
 		entry := &world.entities[entity]
 		set := &entry.chunk.archetype.component_set
-		new_set := component_set_remove_relationship(set, deleted_entity, world.allocator)
+		new_set := set_remove_relationship(set, deleted_entity, world.allocator)
 		target_node, exists := archetype_graph_get_or_create(world, &world.archetypes, &new_set)
 
 		if exists {
-			component_set_deinit(&new_set)
+			set_destroy(&new_set)
 		}
 
 		move_entity(world, entry, &target_node.archetype, entry.row)

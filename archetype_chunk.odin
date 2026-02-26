@@ -27,7 +27,7 @@ archetype_chunk_create :: proc(
 	world: ^World,
 	archetype: ^Archetype,
 	capacity: int,
-	component_set: ^ComponentSet,
+	component_set: ^Component_Set,
 	buffer: []u8,
 ) -> ^Archetype_Chunk {
 	chunk_arena := vmem.Arena{}
@@ -172,7 +172,7 @@ archetype_chunk_copy_row :: proc(
 			row_data := archetype_chunk_get_data(src_chunk, src_col_idx, src_row)
 			src_component_id := src_chunk.columns[src_col_idx].component_id
 
-			if component_set_has(&dest_chunk.archetype.component_set, src_component_id) {
+			if set_has(&dest_chunk.archetype.component_set, src_component_id) {
 				dest_col_idx := dest_chunk.archetype.component_column_map[src_component_id]
 
 				archetype_chunk_set_data(dest_chunk, dest_col_idx, dest_row, row_data)

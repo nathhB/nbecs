@@ -32,14 +32,14 @@ watch_delete_events_tests :: proc(t: ^testing.T) {
 
 	ctx := Watcher_Context{0, 0, e1, e2, t}
 
-	ecs.ecs_watch(world, ecs.Event_Deleted, on_deleted_foo, &ctx, ecs.query_term(world, Foo))
+	ecs.ecs_watch(world, ecs.Event_Deleted, on_deleted_foo, &ctx, ecs.term(world, Foo))
 	ecs.ecs_watch(
 		world,
 		ecs.Event_Deleted,
 		on_deleted_foo_bar,
 		&ctx,
-		ecs.query_term(world, Foo),
-		ecs.query_term(world, Bar),
+		ecs.term(world, Foo),
+		ecs.term(world, Bar),
 	)
 
 	ecs.ecs_delete(world, e1)
@@ -53,14 +53,14 @@ watch_delete_events_tests :: proc(t: ^testing.T) {
 on_deleted_foo :: proc(
 	world: ^ecs.World,
 	entity: ecs.EntityId,
-	it: ^ecs.QueryIterator,
+	it: ^ecs.Query_Iterator,
 	row: int,
 	ctx: rawptr,
 	data: rawptr,
 ) {
 	ctx := (^Watcher_Context)(ctx)
-	foo_col := ecs.query_column(it, 0)
-	foo := ecs.query_entity_data(foo_col, row, Foo)
+	foo_col := ecs.column(it, 0)
+	foo := ecs.row_data(foo_col, row, Foo)
 
 	testing.expect(ctx.t, entity == ctx.e1 || entity == ctx.e2)
 
@@ -76,16 +76,16 @@ on_deleted_foo :: proc(
 on_deleted_foo_bar :: proc(
 	world: ^ecs.World,
 	entity: ecs.EntityId,
-	it: ^ecs.QueryIterator,
+	it: ^ecs.Query_Iterator,
 	row: int,
 	ctx: rawptr,
 	data: rawptr,
 ) {
 	ctx := (^Watcher_Context)(ctx)
-	foo_col := ecs.query_column(it, 0)
-	bar_col := ecs.query_column(it, 1)
-	foo := ecs.query_entity_data(foo_col, row, Foo)
-	bar := ecs.query_entity_data(bar_col, row, Bar)
+	foo_col := ecs.column(it, 0)
+	bar_col := ecs.column(it, 1)
+	foo := ecs.row_data(foo_col, row, Foo)
+	bar := ecs.row_data(bar_col, row, Bar)
 
 	testing.expect(ctx.t, entity == ctx.e2)
 

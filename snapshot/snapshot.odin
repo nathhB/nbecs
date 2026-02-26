@@ -69,7 +69,7 @@ copy_types :: proc(
 	node := node
 
 	if node == nil {
-		hash := ecs.component_set_build_hash([]ecs.EntityId{ecs.TypeTrait})
+		hash := ecs.set_build_hash([]ecs.EntityId{ecs.TypeTrait})
 		ensure(hash in src_world.archetypes.nodes)
 		node = src_world.archetypes.nodes[hash]
 	}
@@ -87,7 +87,7 @@ copy_types :: proc(
 
 	copy_archetype(src_world, snap_world, src_archetype, &dest_node.archetype)
 
-	it := ecs.iter_archetype(src_world, src_archetype, allocator)
+	it := ecs.archetype_iter(src_world, src_archetype, allocator)
 	chunk := it.current_chunk
 
 	for row := 0; row < len(chunk.entities); row += 1 {
@@ -249,7 +249,7 @@ copy_chunk :: proc(src: ^ecs.Archetype_Chunk, dest: ^ecs.Archetype_Chunk) {
 }
 
 skip_archetype :: proc(world: ^ecs.World, arch: ^ecs.Archetype) -> bool {
-	if ecs.component_set_has(&arch.component_set, ecs.ecs_get_type_id(world, ecs.System)) {
+	if ecs.set_has(&arch.component_set, ecs.ecs_get_type_id(world, ecs.System)) {
 		return true
 	}
 

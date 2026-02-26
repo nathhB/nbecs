@@ -14,14 +14,10 @@ archetype_creation_tests :: proc(t: ^testing.T) {
 	plop: ecs.EntityId = ecs.ecs_new(world)
 	plap: ecs.EntityId = ecs.ecs_new(world)
 
-	set1 := ecs.ComponentSet{}
-	set2 := ecs.ComponentSet{}
-	set3 := ecs.ComponentSet{}
-
-	ecs.component_set_init(&set1, []ecs.EntityId{foo, bar})
-	ecs.component_set_init(&set2, []ecs.EntityId{bar, foo})
-	defer ecs.component_set_deinit(&set2)
-	ecs.component_set_init(&set3, []ecs.EntityId{bar, foo, plop})
+	set1 := ecs.set_build([]ecs.EntityId{foo, bar})
+	set2 := ecs.set_build([]ecs.EntityId{bar, foo})
+	defer ecs.set_destroy(&set2)
+	set3 := ecs.set_build([]ecs.EntityId{bar, foo, plop})
 
 	arch1 := ecs.Archetype{}
 	arch2 := ecs.Archetype{}
@@ -68,11 +64,8 @@ archetype_data_tests :: proc(t: ^testing.T) {
 	bar: ecs.EntityId = ecs.ecs_declare(world, Bar)
 	plop: ecs.EntityId = ecs.ecs_new(world)
 
-	set1 := ecs.ComponentSet{}
-	set2 := ecs.ComponentSet{}
-
-	ecs.component_set_init(&set1, []ecs.EntityId{foo, bar})
-	ecs.component_set_init(&set2, []ecs.EntityId{bar, foo2, plop})
+	set1 := ecs.set_build([]ecs.EntityId{foo, bar})
+	set2 := ecs.set_build([]ecs.EntityId{bar, foo2, plop})
 
 	arch1 := ecs.Archetype{}
 	arch2 := ecs.Archetype{}
@@ -135,9 +128,7 @@ archetype_entity_deletion_tests :: proc(t: ^testing.T) {
 	foo2: ecs.EntityId = ecs.ecs_declare(world, Foo2)
 	bar: ecs.EntityId = ecs.ecs_declare(world, Bar)
 
-	set1 := ecs.ComponentSet{}
-
-	ecs.component_set_init(&set1, []ecs.EntityId{foo, bar, foo2})
+	set1 := ecs.set_build([]ecs.EntityId{foo, bar, foo2})
 
 	arch1 := ecs.Archetype{}
 
@@ -178,11 +169,8 @@ archetype_copy_row_tests :: proc(t: ^testing.T) {
 	foo2: ecs.EntityId = ecs.ecs_declare(world, Foo2)
 	bar: ecs.EntityId = ecs.ecs_declare(world, Bar)
 
-	set1 := ecs.ComponentSet{}
-	set2 := ecs.ComponentSet{}
-
-	ecs.component_set_init(&set1, []ecs.EntityId{foo, bar})
-	ecs.component_set_init(&set2, []ecs.EntityId{foo, bar, foo2})
+	set1 := ecs.set_build([]ecs.EntityId{foo, bar})
+	set2 := ecs.set_build([]ecs.EntityId{foo, bar, foo2})
 
 	arch1 := ecs.Archetype{}
 	arch2 := ecs.Archetype{}
@@ -247,8 +235,7 @@ archetype_pairs_tests :: proc(t: ^testing.T) {
 	pair3 := ecs.ecs_build_pair(likes, apple)
 	pair4 := ecs.ecs_build_pair(likes, pear)
 
-	set := ecs.ComponentSet{}
-	ecs.component_set_init(&set, []ecs.EntityId{pair1, pair2, pair3, pair4})
+	set := ecs.set_build([]ecs.EntityId{pair1, pair2, pair3, pair4})
 	arch := ecs.Archetype{}
 	ecs.archetype_init(world, &arch, &set)
 	defer ecs.archetype_deinit(&arch)
@@ -277,8 +264,7 @@ archetype_unique_pair_tests :: proc(t: ^testing.T) {
 	ecs.ecs_add(world, eats, ecs.UniquePair)
 	ecs.ecs_add(world, likes, ecs.UniquePair)
 
-	set := ecs.ComponentSet{}
-	ecs.component_set_init(&set, []ecs.EntityId{pair1, pair4})
+	set := ecs.set_build([]ecs.EntityId{pair1, pair4})
 	arch := ecs.Archetype{}
 	ecs.archetype_init(world, &arch, &set)
 	defer ecs.archetype_deinit(&arch)
@@ -286,8 +272,7 @@ archetype_unique_pair_tests :: proc(t: ^testing.T) {
 	testing.expect_value(t, ecs.archetype_get_pair(&arch, eats), pair1)
 	testing.expect_value(t, ecs.archetype_get_pair(&arch, likes), pair4)
 
-	set2 := ecs.ComponentSet{}
-	ecs.component_set_init(&set2, []ecs.EntityId{pair2, pair3})
+	set2 := ecs.set_build([]ecs.EntityId{pair2, pair3})
 	arch2 := ecs.Archetype{}
 	ecs.archetype_init(world, &arch2, &set2)
 	defer ecs.archetype_deinit(&arch2)
@@ -304,10 +289,7 @@ archetype_chunks_tests :: proc(t: ^testing.T) {
 	foo: ecs.EntityId = ecs.ecs_declare(world, Foo)
 	bar: ecs.EntityId = ecs.ecs_declare(world, Bar)
 
-	set := ecs.ComponentSet{}
-
-	ecs.component_set_init(&set, []ecs.EntityId{foo, bar})
-
+	set := ecs.set_build([]ecs.EntityId{foo, bar})
 	arch := ecs.Archetype{}
 
 	ecs.archetype_init(world, &arch, &set, 3)
@@ -384,9 +366,7 @@ archetype_chunk_memory_tests :: proc(t: ^testing.T) {
 	foo: ecs.EntityId = ecs.ecs_declare(world, Foo)
 	bar: ecs.EntityId = ecs.ecs_declare(world, Bar)
 
-	set := ecs.ComponentSet{}
-
-	ecs.component_set_init(&set, []ecs.EntityId{foo, bar})
+	set := ecs.set_build([]ecs.EntityId{foo, bar})
 
 	arch := ecs.Archetype{}
 

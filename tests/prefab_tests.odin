@@ -49,7 +49,7 @@ simple_prefab_tests :: proc(t: ^testing.T) {
 	testing.expect_value(t, i2_bar.v, 300)
 
 	// make sure prefab is not match in queries
-	q1 := ecs.query_build(world, ecs.query_term(world, Foo), ecs.query_term(world, Bar))
+	q1 := ecs.query_build(world, ecs.term(world, Foo), ecs.term(world, Bar))
 
 	expect_query_matched_entities(t, q1, []ecs.EntityId{instance1, instance2})
 }

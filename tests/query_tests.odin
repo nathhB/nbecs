@@ -33,24 +33,19 @@ query_match_archetypes_tests :: proc(t: ^testing.T) {
 	arch3 := expect_find_archetype(t, world, []ecs.EntityId{bar})
 	arch4 := expect_find_archetype(t, world, []ecs.EntityId{bar, plop})
 
-	q1 := ecs.query_build(world, ecs.query_term(world, foo))
+	q1 := ecs.query_build(world, ecs.term(world, foo))
 
 	expect_query_matched_archetypes(t, q1, []^ecs.Archetype{arch1, arch2})
 
-	q2 := ecs.query_build(world, ecs.query_term(world, foo), ecs.query_term(world, bar))
+	q2 := ecs.query_build(world, ecs.term(world, foo), ecs.term(world, bar))
 
 	expect_query_matched_archetypes(t, q2, []^ecs.Archetype{arch2})
 
-	q3 := ecs.query_build(
-		world,
-		ecs.query_term(world, foo),
-		ecs.query_term(world, bar),
-		ecs.query_term(world, plop),
-	)
+	q3 := ecs.query_build(world, ecs.term(world, foo), ecs.term(world, bar), ecs.term(world, plop))
 
 	expect_query_matched_archetypes(t, q3, []^ecs.Archetype{})
 
-	q4 := ecs.query_build(world, ecs.query_term(world, bar), ecs.query_term(world, plop))
+	q4 := ecs.query_build(world, ecs.term(world, bar), ecs.term(world, plop))
 
 	expect_query_matched_archetypes(t, q4, []^ecs.Archetype{arch4})
 
@@ -90,15 +85,15 @@ query_match_entities_tests :: proc(t: ^testing.T) {
 
 	expect_archetype_index(t, world, bar, []^ecs.Archetype{arch1, arch2, arch3})
 
-	q1 := ecs.query_build(world, ecs.query_term(world, foo))
+	q1 := ecs.query_build(world, ecs.term(world, foo))
 
 	expect_query_matched_entities(t, q1, []ecs.EntityId{e1, e2})
 
-	q2 := ecs.query_build(world, ecs.query_term(world, bar))
+	q2 := ecs.query_build(world, ecs.term(world, bar))
 
 	expect_query_matched_entities(t, q2, []ecs.EntityId{e2, e3})
 
-	q3 := ecs.query_build(world, ecs.query_term(world, plop))
+	q3 := ecs.query_build(world, ecs.term(world, plop))
 
 	expect_query_matched_entities(t, q3, []ecs.EntityId{e3})
 
@@ -134,11 +129,11 @@ query_match_relationships_tests :: proc(t: ^testing.T) {
 	ecs.ecs_add_pair(world, e1, eats, apple)
 	ecs.ecs_add_pair(world, e2, eats, pear)
 
-	q1 := ecs.query_build(world, ecs.query_term(world, eats, apple))
+	q1 := ecs.query_build(world, ecs.term(world, eats, apple))
 
 	expect_query_matched_entities(t, q1, []ecs.EntityId{e1})
 
-	q2 := ecs.query_build(world, ecs.query_term(world, eats, pear))
+	q2 := ecs.query_build(world, ecs.term(world, eats, pear))
 
 	expect_query_matched_entities(t, q2, []ecs.EntityId{e2})
 
@@ -152,7 +147,7 @@ query_match_relationships_tests :: proc(t: ^testing.T) {
 	expect_query_matched_entities(t, q1, []ecs.EntityId{e2})
 	expect_query_matched_entities(t, q2, []ecs.EntityId{e2})
 
-	q3 := ecs.query_build(world, ecs.query_term(world, ecs.ecs_build_pair(eats, ecs.Wildcard)))
+	q3 := ecs.query_build(world, ecs.term(world, ecs.ecs_build_pair(eats, ecs.Wildcard)))
 
 	expect_query_matched_entities(t, q3, []ecs.EntityId{e2})
 
@@ -166,11 +161,11 @@ query_match_relationships_tests :: proc(t: ^testing.T) {
 
 	expect_query_matched_entities(t, q3, []ecs.EntityId{e2, e3, e5})
 
-	q4 := ecs.query_build(world, ecs.query_term(world, ecs.ecs_build_pair(ecs.Wildcard, pear)))
+	q4 := ecs.query_build(world, ecs.term(world, ecs.ecs_build_pair(ecs.Wildcard, pear)))
 
 	expect_query_matched_entities(t, q4, []ecs.EntityId{e2, e3})
 
-	q5 := ecs.query_build(world, ecs.query_term(world, ecs.ecs_build_pair(ecs.Wildcard, apple)))
+	q5 := ecs.query_build(world, ecs.term(world, ecs.ecs_build_pair(ecs.Wildcard, apple)))
 
 	expect_query_matched_entities(t, q5, []ecs.EntityId{e2, e3, e5})
 
@@ -187,7 +182,7 @@ query_match_relationships_tests :: proc(t: ^testing.T) {
 }
 
 @(test)
-query_entity_data_tests :: proc(t: ^testing.T) {
+row_data_tests :: proc(t: ^testing.T) {
 	world := ecs.ecs_create()
 	defer ecs.ecs_destroy(world)
 
@@ -205,18 +200,17 @@ query_entity_data_tests :: proc(t: ^testing.T) {
 	ecs.ecs_set_pair(world, e3, &Posseses{100}, apple)
 	ecs.ecs_set_pair(world, e4, &Posseses{100}, pear)
 
-	q1 := ecs.query_build(world, ecs.query_term(world, Posseses, apple))
+	q1 := ecs.query_build(world, ecs.term(world, Posseses, apple))
 
 	expect_query_matched_entities(t, q1, []ecs.EntityId{e1, e3})
 
 	it := ecs.query_iter(q1)
 
-	for ecs.query_iter_next_match(&it) {
-		chunk := it.current_chunk
-		col := ecs.query_column(&it, 0)
+	for chunk in ecs.iter_next_chunk(&it) {
+		col := ecs.column(&it, 0)
 
 		for row := 0; row < len(chunk.entities); row += 1 {
-			p := ecs.query_entity_data_mut(col, row, Posseses)
+			p := ecs.row_data_mut(col, row, Posseses)
 
 			p.amount *= 2
 		}
@@ -245,15 +239,14 @@ query_unique_pair_entity_tests :: proc(t: ^testing.T) {
 	ecs.ecs_set_pair(world, e1, &Posseses{10}, apple)
 	ecs.ecs_set_pair(world, e2, &Posseses{10}, pear)
 
-	q := ecs.query_build(world, ecs.query_term(world, Posseses, ecs.Wildcard))
+	q := ecs.query_build(world, ecs.term(world, Posseses, ecs.Wildcard))
 
 	expect_query_matched_entities(t, q, []ecs.EntityId{e1, e2})
 
 	it := ecs.query_iter(q)
 
-	for ecs.query_iter_next_match(&it) {
-		chunk := it.current_chunk
-		possessed_entity := ecs.query_unique_pair_entity(&it, 0)
+	for chunk in ecs.iter_next_chunk(&it) {
+		possessed_entity := ecs.unique_pair_entity(&it, 0)
 
 		for row := 0; row < len(chunk.entities); row += 1 {
 			entity := chunk.entities[row]
@@ -292,14 +285,14 @@ query_not_tests :: proc(t: ^testing.T) {
 
 	ecs.ecs_set(world, e3, &Foo{300})
 
-	q1 := ecs.query_build(world, ecs.query_term(world, Foo), ecs.query_not_term(world, Bar))
-	q2 := ecs.query_build(world, ecs.query_term(world, Foo), ecs.query_not_term(world, plop))
-	q3 := ecs.query_build(world, ecs.query_term(world, Foo), ecs.query_not_term(world, plap))
+	q1 := ecs.query_build(world, ecs.term(world, Foo), ecs.not_term(world, Bar))
+	q2 := ecs.query_build(world, ecs.term(world, Foo), ecs.not_term(world, plop))
+	q3 := ecs.query_build(world, ecs.term(world, Foo), ecs.not_term(world, plap))
 	q4 := ecs.query_build(
 		world,
-		ecs.query_term(world, Foo),
-		ecs.query_not_term(world, Bar),
-		ecs.query_not_term(world, plop),
+		ecs.term(world, Foo),
+		ecs.not_term(world, Bar),
+		ecs.not_term(world, plop),
 	)
 
 	expect_query_matched_entities(t, q1, []ecs.EntityId{e1, e3})
@@ -331,16 +324,12 @@ query_optional_term_tests :: proc(t: ^testing.T) {
 
 	ecs.ecs_set(world, e3, &Foo{300})
 
-	q1 := ecs.query_build(
-		world,
-		ecs.query_term(world, Foo),
-		ecs.query_term(world, Bar, optional = true),
-	)
+	q1 := ecs.query_build(world, ecs.term(world, Foo), ecs.term(world, Bar, optional = true))
 	q2 := ecs.query_build(
 		world,
-		ecs.query_term(world, Foo),
-		ecs.query_term(world, Bar, optional = true),
-		ecs.query_term(world, plap),
+		ecs.term(world, Foo),
+		ecs.term(world, Bar, optional = true),
+		ecs.term(world, plap),
 	)
 
 	expect_query_matched_entities(t, q1, []ecs.EntityId{e1, e2, e3})
@@ -369,13 +358,13 @@ query_parent_component_tests :: proc(t: ^testing.T) {
 	ecs.ecs_set_parent(world, e2, e1)
 	ecs.ecs_set_parent(world, e3, e2)
 
-	q1 := ecs.query_build(world, ecs.query_term(world, Foo))
+	q1 := ecs.query_build(world, ecs.term(world, Foo))
 	it := ecs.query_iter(q1)
 
 	expect_query_matched_entities(t, q1, []ecs.EntityId{e1, e2, e3})
 
 	for i := 0; i < len(it.matches); i += 1 {
-		ecs.query_iter_next_match(&it)
+		ecs.iter_next_chunk(&it)
 
 		if it.current_match.archetype == world.entities[e1].chunk.archetype {
 			testing.expect_value(t, it.current_match.parent, 0)
@@ -415,7 +404,7 @@ query_cascade_tests :: proc(t: ^testing.T) {
 	ecs.ecs_set(world, e4, &Foo{0})
 	ecs.ecs_set(world, e5, &Foo{0})
 
-	q1 := ecs.query_build(world, ecs.query_term(world, Foo), cascade = true)
+	q1 := ecs.query_build(world, ecs.term(world, Foo), cascade = true)
 
 	expect_query_matched_entities_in_order(t, q1, []ecs.EntityId{e1, e2, e3, e4, e5})
 }
@@ -447,58 +436,45 @@ filter_match_entities_tests :: proc(t: ^testing.T) {
 		t,
 		world,
 		[]ecs.EntityId{e3},
-		ecs.query_term(world, bar),
-		ecs.query_term(world, plop),
+		ecs.term(world, bar),
+		ecs.term(world, plop),
 	)
 
 	expect_filter_matched_entities(
 		t,
 		world,
 		[]ecs.EntityId{e1, e2},
-		ecs.query_term(world, Foo),
-		ecs.query_term(world, Bar),
+		ecs.term(world, Foo),
+		ecs.term(world, Bar),
 	)
 
 	it := ecs.filter_iter(
 		world,
-		ecs.query_term(world, Foo),
-		ecs.query_term(world, Bar),
+		ecs.term(world, Foo),
+		ecs.term(world, Bar),
 		allocator = context.temp_allocator,
 	)
 
-	for ecs.query_iter_next_match(&it) {
-		chunk := it.current_chunk
-		foo_col := ecs.query_column(&it, 0)
-		bar_col := ecs.query_column(&it, 1)
+	for chunk in ecs.iter_next_chunk(&it) {
+		foo_col := ecs.column(&it, 0)
+		bar_col := ecs.column(&it, 1)
 
 		for row := 0; row < len(chunk.entities); row += 1 {
 			entity := chunk.entities[row]
 
 			if entity == e1 {
-				foo := ecs.query_entity_data(foo_col, row, Foo)
-				bar := ecs.query_entity_data(bar_col, row, Bar)
+				foo := ecs.row_data(foo_col, row, Foo)
+				bar := ecs.row_data(bar_col, row, Bar)
 
 				testing.expect_value(t, 42, foo.v)
 				testing.expect_value(t, 4242, bar.v)
 			} else if entity == e2 {
-				foo := ecs.query_entity_data(foo_col, row, Foo)
-				bar := ecs.query_entity_data(bar_col, row, Bar)
+				foo := ecs.row_data(foo_col, row, Foo)
+				bar := ecs.row_data(bar_col, row, Bar)
 
 				testing.expect_value(t, 24, foo.v)
 				testing.expect_value(t, 2424, bar.v)
 			}
 		}
 	}
-
-	// ecs.ecs_add(world, e1, bar)
-	// ecs.ecs_add(world, e1, plop)
-	//
-	// expect_query_matched_entities(t, q2, []ecs.EntityId{e1, e2, e3})
-	// expect_query_matched_entities(t, q3, []ecs.EntityId{e1, e3})
-	//
-	// ecs.ecs_delete(world, e1)
-	// ecs.ecs_delete(world, e3)
-	//
-	// expect_query_matched_entities(t, q2, []ecs.EntityId{e2})
-	// expect_query_matched_entities(t, q3, []ecs.EntityId{})
 }

@@ -13,7 +13,7 @@ Archetype :: struct {
 	is_root:              bool,
 	is_watcher:           bool,
 	node:                 ^ArchetypeNode,
-	component_set:        ComponentSet,
+	component_set:        Component_Set,
 	chunks:               [dynamic]^Archetype_Chunk,
 	component_column_map: map[EntityId]int,
 	pairs:                map[EntityId]Pair_Array,
@@ -27,7 +27,7 @@ Archetype :: struct {
 archetype_init :: proc(
 	world: ^World,
 	archetype: ^Archetype,
-	component_set: ^ComponentSet,
+	component_set: ^Component_Set,
 	chunk_capacity := 0,
 	chunk_count := 1,
 	is_root := false,
@@ -97,11 +97,11 @@ archetype_deinit :: proc(archetype: ^Archetype) {
 		delete(archetype.chunk_free_list)
 	}
 
-	component_set_deinit(&archetype.component_set)
+	set_destroy(&archetype.component_set)
 }
 
 archetype_has :: proc(archetype: ^Archetype, component_id: EntityId) -> bool {
-	return !archetype.is_root && component_set_has(&archetype.component_set, component_id)
+	return !archetype.is_root && set_has(&archetype.component_set, component_id)
 }
 
 archetype_add_entity :: proc(
@@ -192,7 +192,7 @@ archetype_column_get_data :: #force_inline proc(col: ^Archetype_Column, row: int
 	return rawptr(uintptr(col.rows) + offset)
 }
 
-compute_chunk_capacity :: proc(world: ^World, component_set: ^ComponentSet) -> int {
+compute_chunk_capacity :: proc(world: ^World, component_set: ^Component_Set) -> int {
 	chunk_overhead := size_of(Archetype_Chunk)
 	entity_size := size_of(EntityId)
 

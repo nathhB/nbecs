@@ -12,10 +12,8 @@ expect_archetype_columns :: proc(
 	component_ids: []ecs.EntityId,
 	loc := #caller_location,
 ) {
-	set := ecs.ComponentSet{}
-
-	ecs.component_set_init(&set, component_ids)
-	defer ecs.component_set_deinit(&set)
+	set := ecs.set_build(component_ids)
+	defer ecs.set_destroy(&set)
 	testing.expect_value(t, archetype.component_set.hash, set.hash, loc)
 }
 
@@ -25,10 +23,8 @@ expect_find_archetype :: proc(
 	component_ids: []ecs.EntityId,
 	loc := #caller_location,
 ) -> ^ecs.Archetype {
-	set := ecs.ComponentSet{}
-
-	ecs.component_set_init(&set, component_ids)
-	defer ecs.component_set_deinit(&set)
+	set := ecs.set_build(component_ids)
+	defer ecs.set_destroy(&set)
 
 	if set.hash not_in world.archetypes.nodes {
 		testing.fail(t, loc)
@@ -43,10 +39,8 @@ expect_no_archetype :: proc(
 	component_ids: []ecs.EntityId,
 	loc := #caller_location,
 ) {
-	set := ecs.ComponentSet{}
-
-	ecs.component_set_init(&set, component_ids)
-	defer ecs.component_set_deinit(&set)
+	set := ecs.set_build(component_ids)
+	defer ecs.set_destroy(&set)
 
 	if set.hash in world.archetypes.nodes {
 		testing.fail(t, loc)
@@ -121,7 +115,7 @@ expect_query_matched_archetypes :: proc(
 
 	it := ecs.query_iter(query)
 
-	for ecs.query_iter_next_match(&it) {
+	for _ in ecs.iter_next_chunk(&it) {
 		match_count += 1
 
 		testing.expectf(
@@ -152,9 +146,7 @@ expect_query_matched_entities :: proc(
 
 	it := ecs.query_iter(query)
 
-	for ecs.query_iter_next_match(&it) {
-		chunk := it.current_chunk
-
+	for chunk in ecs.iter_next_chunk(&it) {
 		for row := 0; row < len(chunk.entities); row += 1 {
 			entity := chunk.entities[row]
 			match_count += 1
@@ -189,9 +181,7 @@ expect_query_matched_entities_in_order :: proc(
 	matched_entities := make([dynamic]ecs.EntityId)
 	defer delete(matched_entities)
 
-	for ecs.query_iter_next_match(&it) {
-		chunk := it.current_chunk
-
+	for chunk in ecs.iter_next_chunk(&it) {
 		for row := 0; row < len(chunk.entities); row += 1 {
 			entity := chunk.entities[row]
 
@@ -213,16 +203,14 @@ expect_filter_matched_entities :: proc(
 	t: ^testing.T,
 	world: ^ecs.World,
 	expected_entities: []ecs.EntityId,
-	terms: ..ecs.QueryTerm,
+	terms: ..ecs.Query_Term,
 	loc := #caller_location,
 ) {
 	match_count := 0
 
 	it := ecs.filter_iter(world, ..terms, allocator = context.temp_allocator)
 
-	for ecs.query_iter_next_match(&it) {
-		chunk := it.current_chunk
-
+	for chunk in ecs.iter_next_chunk(&it) {
 		for row := 0; row < len(chunk.entities); row += 1 {
 			entity := chunk.entities[row]
 			match_count += 1
