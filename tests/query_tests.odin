@@ -419,3 +419,86 @@ query_cascade_tests :: proc(t: ^testing.T) {
 
 	expect_query_matched_entities_in_order(t, q1, []ecs.EntityId{e1, e2, e3, e4, e5})
 }
+
+@(test)
+filter_match_entities_tests :: proc(t: ^testing.T) {
+	world := ecs.ecs_create()
+	defer ecs.ecs_destroy(world)
+
+	foo: ecs.EntityId = ecs.ecs_declare(world, Foo, "Foo")
+	bar: ecs.EntityId = ecs.ecs_declare(world, Bar, "Bar")
+	plop: ecs.EntityId = ecs.ecs_new(world, "Plop")
+	plap: ecs.EntityId = ecs.ecs_new(world, "Plap")
+
+	e1 := ecs.ecs_new(world, "E1")
+	e2 := ecs.ecs_new(world, "E2")
+	e3 := ecs.ecs_new(world, "E3")
+
+	ecs.ecs_set(world, e1, &Foo{42})
+	ecs.ecs_set(world, e1, &Bar{4242})
+
+	ecs.ecs_set(world, e2, &Foo{24})
+	ecs.ecs_set(world, e2, &Bar{2424})
+
+	ecs.ecs_add(world, e3, bar)
+	ecs.ecs_add(world, e3, plop)
+
+	expect_filter_matched_entities(
+		t,
+		world,
+		[]ecs.EntityId{e3},
+		ecs.query_term(world, bar),
+		ecs.query_term(world, plop),
+	)
+
+	expect_filter_matched_entities(
+		t,
+		world,
+		[]ecs.EntityId{e1, e2},
+		ecs.query_term(world, Foo),
+		ecs.query_term(world, Bar),
+	)
+
+	it := ecs.filter_iter(
+		world,
+		ecs.query_term(world, Foo),
+		ecs.query_term(world, Bar),
+		allocator = context.temp_allocator,
+	)
+
+	for ecs.query_iter_next_match(&it) {
+		chunk := it.current_chunk
+		foo_col := ecs.query_column(&it, 0)
+		bar_col := ecs.query_column(&it, 1)
+
+		for row := 0; row < len(chunk.entities); row += 1 {
+			entity := chunk.entities[row]
+
+			if entity == e1 {
+				foo := ecs.query_entity_data(foo_col, row, Foo)
+				bar := ecs.query_entity_data(bar_col, row, Bar)
+
+				testing.expect_value(t, 42, foo.v)
+				testing.expect_value(t, 4242, bar.v)
+			} else if entity == e2 {
+				foo := ecs.query_entity_data(foo_col, row, Foo)
+				bar := ecs.query_entity_data(bar_col, row, Bar)
+
+				testing.expect_value(t, 24, foo.v)
+				testing.expect_value(t, 2424, bar.v)
+			}
+		}
+	}
+
+	// ecs.ecs_add(world, e1, bar)
+	// ecs.ecs_add(world, e1, plop)
+	//
+	// expect_query_matched_entities(t, q2, []ecs.EntityId{e1, e2, e3})
+	// expect_query_matched_entities(t, q3, []ecs.EntityId{e1, e3})
+	//
+	// ecs.ecs_delete(world, e1)
+	// ecs.ecs_delete(world, e3)
+	//
+	// expect_query_matched_entities(t, q2, []ecs.EntityId{e2})
+	// expect_query_matched_entities(t, q3, []ecs.EntityId{})
+}

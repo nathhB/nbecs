@@ -1,6 +1,5 @@
 package nbecs
 
-import "base:intrinsics"
 import sa "core:container/small_array"
 import "core:log"
 import "core:mem"
@@ -19,14 +18,11 @@ QueryTerm :: struct {
 	evaluator:        QueryTermEvaluator,
 }
 
-QueryField :: union {
-	QueryField_ColumnIndex,
-	EntityId,
-}
+Column_Index :: int
 
-QueryField_ColumnIndex :: struct {
-	index:    int,
-	optional: bool,
+QueryField :: union {
+	Column_Index,
+	EntityId,
 }
 
 QueryMatch :: struct {
@@ -120,6 +116,10 @@ filter_iter :: proc(
 ) -> QueryIterator {
 	matches := make([dynamic]QueryMatch, allocator)
 
+	for &term, index in terms {
+		term.index = index
+	}
+
 	evaluate_terms(world, terms, &matches, allocator)
 
 	return QueryIterator{world, terms, matches[:], nil, nil, 0, 0}
@@ -170,10 +170,11 @@ query_iter_next_match :: proc(iterator: ^QueryIterator) -> bool {
 
 query_column :: proc(iterator: ^QueryIterator, index: int) -> ^Archetype_Column {
 	ensure(iterator.current_match != nil)
+	ensure(index < sa.len(iterator.current_match.fields))
 
 	fields := sa.slice(&iterator.current_match.fields)
 	field := &fields[index]
-	col_idx := (field.(QueryField_ColumnIndex)).index
+	col_idx := field.(Column_Index)
 
 	return &iterator.current_chunk.columns[col_idx]
 }
@@ -476,9 +477,9 @@ term_component_eval :: proc(evaluator: ^QueryEvaluator, term: ^QueryTerm) -> boo
 	}
 
 	if term.component_size > 0 {
-		col_index := has ? match.archetype.component_column_map[term.component_id] : -1
+		col_idx := has ? match.archetype.component_column_map[term.component_id] : -1
 
-		sa.set(&match.fields, term.index, QueryField_ColumnIndex{col_index, term.optional})
+		sa.set(&match.fields, term.index, col_idx)
 	}
 
 	return true
