@@ -7,20 +7,20 @@ import "core:testing"
 
 @(test)
 query_parse_tests :: proc(t: ^testing.T) {
-	world := ecs.ecs_create()
-	defer ecs.ecs_destroy(world)
+	world := ecs.create()
+	defer ecs.destroy(world)
 
-	foo := ecs.ecs_declare(world, Foo, "Foo")
-	bar := ecs.ecs_declare(world, Bar, "Bar")
-	plop := ecs.ecs_new(world, "Plop")
-	plap := ecs.ecs_new(world, "Plap")
-	pair1 := ecs.ecs_build_pair(foo, bar)
+	foo := ecs.declare(world, Foo, "Foo")
+	bar := ecs.declare(world, Bar, "Bar")
+	plop := ecs.new(world, "Plop")
+	plap := ecs.new(world, "Plap")
+	pair1 := ecs.build_pair(foo, bar)
 
-	query1 := ecs.query_parse(world, "Foo Bar Plap")
-	query2 := ecs.query_parse(world, " Bar Plop Foo  ")
-	query3 := ecs.query_parse(world, "Bar Plop !Foo")
-	query4 := ecs.query_parse(world, "Plop (Foo, Plap)")
-	query5 := ecs.query_parse(world, "?Plop !Foo ?Bar")
+	query1 := ecs.query(world, "Foo Bar Plap")
+	query2 := ecs.query(world, " Bar Plop Foo  ")
+	query3 := ecs.query(world, "Bar Plop !Foo")
+	query4 := ecs.query(world, "Plop (Foo, Plap)")
+	query5 := ecs.query(world, "?Plop !Foo ?Bar")
 
 	check_terms(t, query1, ecs.term(world, Foo), ecs.term(world, Bar), ecs.term(world, plap))
 	check_terms(t, query2, ecs.term(world, Bar), ecs.term(world, plop), ecs.term(world, Foo))

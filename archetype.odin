@@ -22,6 +22,7 @@ Archetype :: struct {
 	chunk_free_list:      [dynamic]^Archetype_Chunk,
 	allocator:            mem.Allocator,
 	depth:                int,
+	column_count:         int,
 }
 
 archetype_init :: proc(
@@ -45,7 +46,7 @@ archetype_init :: proc(
 
 	col_idx := 0
 	for component_id, _ in component_set.components {
-		component_size := ecs_get_component_size(world, component_id)
+		component_size := get_component_size(world, component_id)
 
 		if component_size > 0 {
 			archetype.component_column_map[component_id] = col_idx
@@ -53,18 +54,20 @@ archetype_init :: proc(
 			col_idx += 1
 		}
 
-		is_pair := ecs_is_pair(component_id)
+		is_pair := is_pair(component_id)
 
 		if is_pair {
 			add_pair(world, archetype, component_id)
 		}
 
 		if !archetype.is_watcher && is_pair {
-			first, _ := ecs_pair_split(component_id)
+			first, _ := pair_split(component_id)
 
-			archetype.is_watcher = first == ecs_get_type_id(world, Watcher)
+			archetype.is_watcher = first == get_type_id(world, Watcher)
 		}
 	}
+
+	archetype.column_count = col_idx
 
 	for i := 0; i < chunk_count; i += 1 {
 		get_or_create_chunk(world, archetype)
@@ -75,26 +78,26 @@ archetype_init :: proc(
 
 archetype_deinit :: proc(archetype: ^Archetype) {
 	for chunk in archetype.chunks {
-		delete(chunk.buffer)
+		delete_slice(chunk.buffer)
 	}
 
 	for chunk in pop_safe(&archetype.chunk_free_list) {
-		delete(chunk.buffer)
+		delete_slice(chunk.buffer)
 	}
 
 	if archetype.pairs != nil {
 		for _, pairs in archetype.pairs {
-			delete(pairs)
+			delete_dynamic_array(pairs)
 		}
 
-		delete(archetype.pairs)
+		delete_map(archetype.pairs)
 	}
 
-	delete(archetype.chunks)
-	delete(archetype.component_column_map)
+	delete_dynamic_array(archetype.chunks)
+	delete_map(archetype.component_column_map)
 
 	if archetype.chunk_free_list != nil {
-		delete(archetype.chunk_free_list)
+		delete_dynamic_array(archetype.chunk_free_list)
 	}
 
 	set_destroy(&archetype.component_set)
@@ -155,7 +158,7 @@ archetype_delete_entity :: proc(
 }
 
 archetype_get_pair :: proc(archetype: ^Archetype, entity: EntityId) -> EntityId {
-	assert(!ecs_is_pair(entity))
+	assert(!is_pair(entity))
 
 	if archetype.pairs == nil {
 		return 0
@@ -171,7 +174,7 @@ archetype_get_pair :: proc(archetype: ^Archetype, entity: EntityId) -> EntityId 
 }
 
 archetype_get_pairs :: proc(archetype: ^Archetype, entity: EntityId) -> []EntityId {
-	assert(!ecs_is_pair(entity))
+	assert(!is_pair(entity))
 
 	if archetype.pairs == nil {
 		return nil
@@ -186,25 +189,20 @@ archetype_get_pairs :: proc(archetype: ^Archetype, entity: EntityId) -> []Entity
 	return pairs[:]
 }
 
-archetype_column_get_data :: #force_inline proc(col: ^Archetype_Column, row: int) -> rawptr {
-	offset := uintptr(row * col.item_size)
-
-	return rawptr(uintptr(col.rows) + offset)
-}
-
 compute_chunk_capacity :: proc(world: ^World, component_set: ^Component_Set) -> int {
-	chunk_overhead := size_of(Archetype_Chunk)
+	overhead := size_of(Archetype_Chunk) + 64
 	entity_size := size_of(EntityId)
 
 	for component_id, _ in component_set.components {
-		chunk_overhead += size_of(Archetype_Column)
-		entity_size += ecs_get_component_size(world, component_id)
+		component_size := get_component_size(world, component_id)
+
+		if component_size > 0 {
+			overhead += size_of(Archetype_Column)
+			entity_size += component_size
+		}
 	}
 
-	capacity := (Archetype_ChunkSize_Bytes - chunk_overhead) / entity_size
-
-	// reduce capacity by 5% to account for alignment paddings
-	return capacity - int(f32(capacity) * 0.05)
+	return (Archetype_ChunkSize_Bytes - overhead) / entity_size
 }
 
 @(private = "file")
@@ -237,22 +235,22 @@ get_or_create_chunk :: proc(world: ^World, archetype: ^Archetype) -> ^Archetype_
 
 @(private = "file")
 add_pair :: proc(world: ^World, archetype: ^Archetype, pair: EntityId) {
-	assert(ecs_is_pair(pair))
+	assert(is_pair(pair))
 
 	if archetype.pairs == nil {
 		archetype.pairs = make(map[EntityId]Pair_Array, archetype.allocator)
 	}
 
-	first, second := ecs_pair_split(pair)
+	first, second := pair_split(pair)
 
 	if first not_in archetype.pairs {
 		archetype.pairs[first] = make(Pair_Array)
 	}
 
 	if first == ChildOf_Id {
-		assert(ecs_exists(world, second))
+		assert(exists(world, second))
 
-		archetype.depth = ecs_get_entity_depth(world, second) + 1
+		archetype.depth = get_entity_depth(world, second) + 1
 	}
 
 	append(&archetype.pairs[first], pair)

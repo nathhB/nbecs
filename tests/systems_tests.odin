@@ -10,81 +10,81 @@ System_Context :: struct {
 
 @(test)
 systems_tests :: proc(t: ^testing.T) {
-	world := ecs.ecs_create()
-	defer ecs.ecs_destroy(world)
+	world := ecs.create()
+	defer ecs.destroy(world)
 
-	foo := ecs.ecs_declare(world, Foo)
-	bar := ecs.ecs_declare(world, Bar)
+	foo := ecs.declare(world, Foo)
+	bar := ecs.declare(world, Bar)
 
-	e1 := ecs.ecs_new(world)
-	e2 := ecs.ecs_new(world)
+	e1 := ecs.new(world)
+	e2 := ecs.new(world)
 
-	ecs.ecs_set(world, e1, &Foo{10})
+	ecs.set(world, e1, &Foo{10})
 
-	ecs.ecs_set(world, e2, &Foo{100})
-	ecs.ecs_set(world, e2, &Bar{200})
+	ecs.set(world, e2, &Foo{100})
+	ecs.set(world, e2, &Bar{200})
 
-	ecs.ecs_system(world, system1, ecs.term(world, Foo))
-	ecs.ecs_system(world, system2, ecs.term(world, Foo), ecs.term(world, Bar))
+	ecs.system(world, system1, ecs.term(world, Foo))
+	ecs.system(world, system2, ecs.term(world, Foo), ecs.term(world, Bar))
 
-	ecs.ecs_update(world, 0)
-	ecs.ecs_update(world, 0)
+	ecs.update(world, 0)
+	ecs.update(world, 0)
 
-	testing.expect_value(t, ecs.ecs_get(world, e1, Foo).v, 40)
-	testing.expect_value(t, ecs.ecs_get(world, e2, Foo).v, 550)
-	testing.expect_value(t, ecs.ecs_get(world, e2, Bar).v, 400)
+	testing.expect_value(t, ecs.get(world, e1, Foo).v, 40)
+	testing.expect_value(t, ecs.get(world, e2, Foo).v, 550)
+	testing.expect_value(t, ecs.get(world, e2, Bar).v, 400)
 }
 
 @(test)
 system_pipelines_tests :: proc(t: ^testing.T) {
-	world := ecs.ecs_create()
-	defer ecs.ecs_destroy(world)
+	world := ecs.create()
+	defer ecs.destroy(world)
 
-	foo := ecs.ecs_declare(world, Foo)
-	pip1 := ecs.ecs_pipeline(world, "CustomPipeline1")
-	pip2 := ecs.ecs_pipeline(world, "CustomPipeline2")
+	foo := ecs.declare(world, Foo)
+	pip1 := ecs.pipeline(world, "CustomPipeline1")
+	pip2 := ecs.pipeline(world, "CustomPipeline2")
 
-	e1 := ecs.ecs_new(world)
-	e2 := ecs.ecs_new(world)
+	e1 := ecs.new(world)
+	e2 := ecs.new(world)
 
-	ecs.ecs_set(world, e1, &Foo{10})
-	ecs.ecs_set(world, e2, &Foo{100})
+	ecs.set(world, e1, &Foo{10})
+	ecs.set(world, e2, &Foo{100})
 
-	ecs.ecs_system(world, system1, ecs.term(world, Foo)) // default pipeline
-	ecs.ecs_system(world, system3, pip1, ecs.term(world, Foo))
-	ecs.ecs_system(world, system4, pip2, ecs.term(world, Foo))
+	ecs.system(world, system1, ecs.term(world, Foo)) // default pipeline
+	ecs.system(world, system3, pip1, ecs.term(world, Foo))
+	ecs.system(world, system4, pip2, ecs.term(world, Foo))
 
-	ecs.ecs_update(world, 0) // default pipeline
+	ecs.update(world, 0) // default pipeline
 
-	testing.expect_value(t, ecs.ecs_get(world, e1, Foo).v, 20)
-	testing.expect_value(t, ecs.ecs_get(world, e2, Foo).v, 200)
+	testing.expect_value(t, ecs.get(world, e1, Foo).v, 20)
+	testing.expect_value(t, ecs.get(world, e2, Foo).v, 200)
 
-	ecs.ecs_update(world, 0, pip1)
+	ecs.update(world, 0, pip1)
 
-	testing.expect_value(t, ecs.ecs_get(world, e1, Foo).v, 25)
-	testing.expect_value(t, ecs.ecs_get(world, e2, Foo).v, 205)
+	testing.expect_value(t, ecs.get(world, e1, Foo).v, 25)
+	testing.expect_value(t, ecs.get(world, e2, Foo).v, 205)
 
-	ecs.ecs_update(world, 0, pip2)
+	ecs.update(world, 0, pip2)
 
-	testing.expect_value(t, ecs.ecs_get(world, e1, Foo).v, 15)
-	testing.expect_value(t, ecs.ecs_get(world, e2, Foo).v, 195)
+	testing.expect_value(t, ecs.get(world, e1, Foo).v, 15)
+	testing.expect_value(t, ecs.get(world, e2, Foo).v, 195)
 }
 
 @(test)
 system_contexts_tests :: proc(t: ^testing.T) {
-	world := ecs.ecs_create()
-	defer ecs.ecs_destroy(world)
+	world := ecs.create()
+	defer ecs.destroy(world)
 
 	ctx1 := System_Context{20}
 	ctx2 := System_Context{40}
 
-	ecs.ecs_system(world, system5, &ctx1)
-	ecs.ecs_system(world, system6, &ctx2)
+	ecs.system(world, system5, &ctx1)
+	ecs.system(world, system6, &ctx2)
 
 	log_debug_world(world)
 
-	ecs.ecs_update(world, 0)
-	ecs.ecs_update(world, 0)
+	ecs.update(world, 0)
+	ecs.update(world, 0)
 
 	testing.expect_value(t, ctx1.value, 2000)
 	testing.expect_value(t, ctx2.value, 400_000)
@@ -92,64 +92,64 @@ system_contexts_tests :: proc(t: ^testing.T) {
 
 @(test)
 systems_query_str_tests :: proc(t: ^testing.T) {
-	world := ecs.ecs_create()
-	defer ecs.ecs_destroy(world)
+	world := ecs.create()
+	defer ecs.destroy(world)
 
-	foo := ecs.ecs_declare(world, Foo, "Foo")
-	bar := ecs.ecs_declare(world, Bar, "Bar")
+	foo := ecs.declare(world, Foo, "Foo")
+	bar := ecs.declare(world, Bar, "Bar")
 
-	e1 := ecs.ecs_new(world)
-	e2 := ecs.ecs_new(world)
+	e1 := ecs.new(world)
+	e2 := ecs.new(world)
 
-	ecs.ecs_set(world, e1, &Foo{10})
+	ecs.set(world, e1, &Foo{10})
 
-	ecs.ecs_set(world, e2, &Foo{100})
-	ecs.ecs_set(world, e2, &Bar{200})
+	ecs.set(world, e2, &Foo{100})
+	ecs.set(world, e2, &Bar{200})
 
-	ecs.ecs_system(world, system1, "Foo")
-	ecs.ecs_system(world, system2, "Foo Bar")
+	ecs.system(world, system1, "Foo")
+	ecs.system(world, system2, "Foo Bar")
 
-	ecs.ecs_update(world, 0)
-	ecs.ecs_update(world, 0)
+	ecs.update(world, 0)
+	ecs.update(world, 0)
 
-	testing.expect_value(t, ecs.ecs_get(world, e1, Foo).v, 40)
-	testing.expect_value(t, ecs.ecs_get(world, e2, Foo).v, 550)
-	testing.expect_value(t, ecs.ecs_get(world, e2, Bar).v, 400)
+	testing.expect_value(t, ecs.get(world, e1, Foo).v, 40)
+	testing.expect_value(t, ecs.get(world, e2, Foo).v, 550)
+	testing.expect_value(t, ecs.get(world, e2, Bar).v, 400)
 }
 
 @(test)
 system_pipelines_str_tests :: proc(t: ^testing.T) {
-	world := ecs.ecs_create()
-	defer ecs.ecs_destroy(world)
+	world := ecs.create()
+	defer ecs.destroy(world)
 
-	foo := ecs.ecs_declare(world, Foo, "Foo")
-	pip1 := ecs.ecs_pipeline(world, "CustomPipeline1")
-	pip2 := ecs.ecs_pipeline(world, "CustomPipeline2")
+	foo := ecs.declare(world, Foo, "Foo")
+	pip1 := ecs.pipeline(world, "CustomPipeline1")
+	pip2 := ecs.pipeline(world, "CustomPipeline2")
 
-	e1 := ecs.ecs_new(world)
-	e2 := ecs.ecs_new(world)
+	e1 := ecs.new(world)
+	e2 := ecs.new(world)
 
-	ecs.ecs_set(world, e1, &Foo{10})
-	ecs.ecs_set(world, e2, &Foo{100})
+	ecs.set(world, e1, &Foo{10})
+	ecs.set(world, e2, &Foo{100})
 
-	ecs.ecs_system(world, system1, "Foo") // default pipeline
-	ecs.ecs_system(world, system3, pip1, "Foo")
-	ecs.ecs_system(world, system4, pip2, "Foo")
+	ecs.system(world, system1, "Foo") // default pipeline
+	ecs.system(world, system3, pip1, "Foo")
+	ecs.system(world, system4, pip2, "Foo")
 
-	ecs.ecs_update(world, 0) // default pipeline
+	ecs.update(world, 0) // default pipeline
 
-	testing.expect_value(t, ecs.ecs_get(world, e1, Foo).v, 20)
-	testing.expect_value(t, ecs.ecs_get(world, e2, Foo).v, 200)
+	testing.expect_value(t, ecs.get(world, e1, Foo).v, 20)
+	testing.expect_value(t, ecs.get(world, e2, Foo).v, 200)
 
-	ecs.ecs_update(world, 0, pip1)
+	ecs.update(world, 0, pip1)
 
-	testing.expect_value(t, ecs.ecs_get(world, e1, Foo).v, 25)
-	testing.expect_value(t, ecs.ecs_get(world, e2, Foo).v, 205)
+	testing.expect_value(t, ecs.get(world, e1, Foo).v, 25)
+	testing.expect_value(t, ecs.get(world, e2, Foo).v, 205)
 
-	ecs.ecs_update(world, 0, pip2)
+	ecs.update(world, 0, pip2)
 
-	testing.expect_value(t, ecs.ecs_get(world, e1, Foo).v, 15)
-	testing.expect_value(t, ecs.ecs_get(world, e2, Foo).v, 195)
+	testing.expect_value(t, ecs.get(world, e1, Foo).v, 15)
+	testing.expect_value(t, ecs.get(world, e2, Foo).v, 195)
 }
 
 system1 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr) -> bool {

@@ -16,24 +16,24 @@ Watcher_Context :: struct {
 
 @(test)
 watch_delete_events_tests :: proc(t: ^testing.T) {
-	world := ecs.ecs_create()
-	defer ecs.ecs_destroy(world)
+	world := ecs.create()
+	defer ecs.destroy(world)
 
-	foo := ecs.ecs_declare(world, Foo)
-	bar := ecs.ecs_declare(world, Bar)
+	foo := ecs.declare(world, Foo)
+	bar := ecs.declare(world, Bar)
 
-	e1 := ecs.ecs_new(world, "E1")
-	e2 := ecs.ecs_new(world, "E2")
+	e1 := ecs.new(world, "E1")
+	e2 := ecs.new(world, "E2")
 
-	ecs.ecs_set(world, e1, &Foo{10})
+	ecs.set(world, e1, &Foo{10})
 
-	ecs.ecs_set(world, e2, &Foo{100})
-	ecs.ecs_set(world, e2, &Bar{200})
+	ecs.set(world, e2, &Foo{100})
+	ecs.set(world, e2, &Bar{200})
 
 	ctx := Watcher_Context{0, 0, e1, e2, t}
 
-	ecs.ecs_watch(world, ecs.Event_Deleted, on_deleted_foo, &ctx, ecs.term(world, Foo))
-	ecs.ecs_watch(
+	ecs.watch(world, ecs.Event_Deleted, on_deleted_foo, &ctx, ecs.term(world, Foo))
+	ecs.watch(
 		world,
 		ecs.Event_Deleted,
 		on_deleted_foo_bar,
@@ -42,10 +42,10 @@ watch_delete_events_tests :: proc(t: ^testing.T) {
 		ecs.term(world, Bar),
 	)
 
-	ecs.ecs_delete(world, e1)
+	ecs.delete(world, e1)
 	testing.expect_value(t, ctx.foo_count, 1)
 	testing.expect_value(t, ctx.bar_count, 0)
-	ecs.ecs_delete(world, e2)
+	ecs.delete(world, e2)
 	testing.expect_value(t, ctx.foo_count, 3)
 	testing.expect_value(t, ctx.bar_count, 1)
 }

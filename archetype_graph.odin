@@ -1,5 +1,6 @@
 package nbecs
 
+import "base:builtin"
 import "core:log"
 import "core:mem"
 import "core:strings"
@@ -36,7 +37,7 @@ archetype_graph_deinit :: proc(graph: ^ArchetypeGraph) {
 		destroy_node(graph, node)
 	}
 
-	delete(graph.nodes)
+	delete_map(graph.nodes)
 }
 
 archetype_graph_add :: proc(
@@ -177,7 +178,7 @@ archetype_graph_cleanup :: proc(
 create_new_node :: proc(graph: ^ArchetypeGraph, hash: u64, is_root: bool) -> ^ArchetypeNode {
 	assert(hash not_in graph.nodes)
 
-	node := new(ArchetypeNode, graph.allocator)
+	node := builtin.new(ArchetypeNode, graph.allocator)
 
 	node.add_nodes = make(map[EntityId]u64, graph.allocator)
 	node.rm_nodes = make(map[EntityId]u64, graph.allocator)
@@ -228,7 +229,7 @@ create_new_archetype :: proc(
 @(private)
 destroy_node :: proc(graph: ^ArchetypeGraph, node: ^ArchetypeNode) {
 	archetype_deinit(&node.archetype)
-	delete(node.add_nodes)
-	delete(node.rm_nodes)
+	delete_map(node.add_nodes)
+	delete_map(node.rm_nodes)
 	free(node, graph.allocator)
 }

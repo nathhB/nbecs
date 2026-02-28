@@ -1,33 +1,33 @@
 package tests
 
 import ecs ".."
-import ecs_snap "../snapshot"
+import snap "../snapshot"
 import "core:testing"
 
 @(test)
 world_snapshot_tests :: proc(t: ^testing.T) {
-	world := ecs.ecs_create()
-	defer ecs.ecs_destroy(world)
+	world := ecs.create()
+	defer ecs.destroy(world)
 
-	foo := ecs.ecs_declare(world, Foo, "Foo")
-	bar := ecs.ecs_declare(world, Bar, "Bar")
+	foo := ecs.declare(world, Foo, "Foo")
+	bar := ecs.declare(world, Bar, "Bar")
 
 	e1: ecs.EntityId = 101
 	e2: ecs.EntityId = 102
 	e3: ecs.EntityId = 103
 
-	ecs.ecs_new_with_id(world, e1, "E1")
-	ecs.ecs_new_with_id(world, e2, "E2")
-	ecs.ecs_new_with_id(world, e3, "E3")
+	ecs.new_with_id(world, e1, "E1")
+	ecs.new_with_id(world, e2, "E2")
+	ecs.new_with_id(world, e3, "E3")
 
-	ecs.ecs_set(world, e1, &Foo{1})
-	ecs.ecs_set(world, e1, &Bar{2})
+	ecs.set(world, e1, &Foo{1})
+	ecs.set(world, e1, &Bar{2})
 
-	ecs.ecs_set(world, e2, &Foo{10})
+	ecs.set(world, e2, &Foo{10})
 
-	ecs.ecs_set(world, e3, &Bar{20})
+	ecs.set(world, e3, &Bar{20})
 
-	snapshot := ecs_snap.take_snapshot(world, context.temp_allocator)
+	snapshot := snap.take_snapshot(world, context.temp_allocator)
 	defer free_all(context.temp_allocator)
 
 	clone_arch1 := expect_find_archetype(t, snapshot, []ecs.EntityId{foo, bar})

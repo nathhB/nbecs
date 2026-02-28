@@ -31,7 +31,7 @@ set_build :: proc(component_ids: []EntityId, allocator := context.allocator) -> 
 }
 
 set_destroy :: proc(set: ^Component_Set) {
-	delete(set.components)
+	delete_map(set.components)
 }
 
 set_add :: proc(
@@ -91,7 +91,7 @@ set_remove_relationship :: proc(
 	sa.clear(&component_ids)
 
 	for component_id, _ in set.components {
-		if ecs_is_pair(component_id) && ecs_pair_contains(component_id, entity) {
+		if is_pair(component_id) && pair_contains(component_id, entity) {
 			continue
 		}
 

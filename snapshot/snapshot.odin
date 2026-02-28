@@ -1,12 +1,14 @@
 package snapshot
 
+ECS_DEBUG :: #config(ECS_DEBUG, false)
+
 import ecs ".."
 import "core:fmt"
 import "core:log"
 import "core:mem"
 
 take_snapshot :: proc(src_world: ^ecs.World, allocator := context.allocator) -> ^ecs.World {
-	snap_world := ecs.ecs_create_snapshot(allocator)
+	snap_world := ecs.create_snapshot(allocator)
 
 	copy_root(src_world, snap_world)
 	copy_types(src_world, snap_world, allocator)
@@ -94,7 +96,7 @@ copy_types :: proc(
 		entity := chunk.entities[row]
 		src_world_type := src_world.ids_to_components[entity]
 
-		ecs.ecs_declare_type(snap_world, entity, src_world_type.type, src_world_type.size)
+		ecs.declare_type(snap_world, entity, src_world_type.type, src_world_type.size)
 	}
 
 	for _, child_hash in node.add_nodes {
@@ -124,35 +126,35 @@ copy_archetypes :: proc(
 	}
 
 	for component, _ in src_archetype.component_set.components {
-		if ecs.ecs_exists(snap_world, component) {
+		if ecs.exists(snap_world, component) {
 			continue
 		}
 
 		// this component is not a type and has not been created yet
 		// from another archetype
 
-		if ecs.ecs_is_pair(component) {
-			first, second := ecs.ecs_pair_split(component)
-			pair_type := ecs.ecs_get_pair_type(src_world, component)
+		if ecs.is_pair(component) {
+			first, second := ecs.pair_split(component)
+			pair_type := ecs.get_pair_type(src_world, component)
 
 			if pair_type == 0 {
 				// pair has no type, both parts are regular entities
 				first_entry, first_exists := src_world.entities[first]
 				second_entry, second_exists := src_world.entities[second]
 
-				if first_exists && !ecs.ecs_exists(snap_world, first) {
-					ecs.ecs_new_with_id(snap_world, first, first_entry.name)
+				if first_exists && !ecs.exists(snap_world, first) {
+					ecs.new_with_id(snap_world, first, first_entry.name)
 				}
 
-				if second_exists && !ecs.ecs_exists(snap_world, second) {
-					ecs.ecs_new_with_id(snap_world, second, second_entry.name)
+				if second_exists && !ecs.exists(snap_world, second) {
+					ecs.new_with_id(snap_world, second, second_entry.name)
 				}
 			} else if pair_type == first {
-				ensure(ecs.ecs_exists(snap_world, first))
+				ensure(ecs.exists(snap_world, first))
 				second_entry, second_exists := src_world.entities[second]
 
-				if second_exists && !ecs.ecs_exists(snap_world, second) {
-					ecs.ecs_new_with_id(snap_world, second, second_entry.name)
+				if second_exists && !ecs.exists(snap_world, second) {
+					ecs.new_with_id(snap_world, second, second_entry.name)
 				}
 			} else {
 				panic("NOT SUPPORTED")
@@ -161,7 +163,7 @@ copy_archetypes :: proc(
 			entry, exists := src_world.entities[component]
 			ensure(exists)
 
-			ecs.ecs_new_with_id(snap_world, component, entry.name)
+			ecs.new_with_id(snap_world, component, entry.name)
 		}
 	}
 
@@ -190,7 +192,7 @@ copy_archetype :: proc(
 	src: ^ecs.Archetype,
 	dest: ^ecs.Archetype,
 ) {
-	when ecs.ECS_DEBUG {
+	when ECS_DEBUG {
 		arch_str := archetype_to_str(src_world, src)
 		defer delete(arch_str)
 
@@ -249,7 +251,7 @@ copy_chunk :: proc(src: ^ecs.Archetype_Chunk, dest: ^ecs.Archetype_Chunk) {
 }
 
 skip_archetype :: proc(world: ^ecs.World, arch: ^ecs.Archetype) -> bool {
-	if ecs.set_has(&arch.component_set, ecs.ecs_get_type_id(world, ecs.System)) {
+	if ecs.set_has(&arch.component_set, ecs.get_type_id(world, ecs.System)) {
 		return true
 	}
 

@@ -1,5 +1,6 @@
 package nbecs
 
+import "base:builtin"
 import sa "core:container/small_array"
 import "core:log"
 import "core:mem"
@@ -59,13 +60,18 @@ Query_Evaluator :: struct {
 
 Query_TermEvaluator :: #type proc(evaluator: ^Query_Evaluator, term: ^Query_Term) -> bool
 
-query_build :: proc(
+query :: proc {
+	build_query,
+	parse_query,
+}
+
+build_query :: proc(
 	world: ^World,
 	terms: ..Query_Term,
 	cascade := false,
 	allocator := context.allocator,
 ) -> ^Query {
-	query := new(Query, allocator)
+	query := builtin.new(Query, allocator)
 
 	query.world = world
 	// + 1 so we can add the '!Prefab' term, see below
@@ -90,12 +96,17 @@ query_build :: proc(
 	return query
 }
 
-query_destroy :: proc(query: ^Query) {
-	delete(query.terms)
-	delete(query.matches)
-	delete(query.match_index)
+destroy_query :: proc(query: ^Query) {
+	delete_slice(query.terms)
+	delete_dynamic_array(query.matches)
+	delete_map(query.match_index)
 
 	free(query, query.allocator)
+}
+
+iter :: proc {
+	query_iter,
+	filter_iter,
 }
 
 query_iter :: proc(query: ^Query) -> Query_Iterator {
@@ -103,7 +114,7 @@ query_iter :: proc(query: ^Query) -> Query_Iterator {
 	// 	query_str := query_to_str(query)
 	// 	defer delete(query_str)
 	//
-	// 	ecs_debug_log("started iterating query: %s", query_str)
+	// 	debug_log("started iterating query: %s", query_str)
 	// }
 
 	return Query_Iterator{query.world, query.terms, query.matches[:], nil, nil, 0, 0}
@@ -164,7 +175,7 @@ iter_next_chunk :: proc(iterator: ^Query_Iterator) -> (chunk: ^Archetype_Chunk, 
 	// 	arch_str := archetype_to_str(iterator.world, iterator.current_match.archetype)
 	// 	defer delete(arch_str)
 	//
-	// 	ecs_debug_log("matched archetype: %s %w", arch_str, iterator.current_match)
+	// 	debug_log("matched archetype: %s %w", arch_str, iterator.current_match)
 	// }
 }
 
@@ -183,7 +194,7 @@ unique_pair_column :: proc(iterator: ^Query_Iterator, $T: typeid) -> ^Archetype_
 	ensure(iterator.current_match != nil)
 
 	archetype := iterator.current_match.archetype
-	pair := archetype_get_pair(archetype, ecs_get_type_id(iterator.world, T))
+	pair := archetype_get_pair(archetype, get_type_id(iterator.world, T))
 	ensure(pair > 0)
 	ensure(pair in archetype.component_column_map)
 	col_idx := archetype.component_column_map[pair]
@@ -205,7 +216,7 @@ row_data :: #force_inline proc(col: ^Archetype_Column, row: int, $T: typeid) -> 
 }
 
 row_data_mut :: #force_inline proc(col: ^Archetype_Column, row: int, $T: typeid) -> ^T {
-	return (^T)(archetype_column_get_data(col, row))
+	return (^T)(archetype_chunk_get_data(col, row))
 }
 
 query_get_parent :: proc(it: ^Query_Iterator) -> EntityId {
@@ -224,9 +235,9 @@ term_component_id :: proc(world: ^World, component_id: EntityId, optional := fal
 	term := Query_Term{}
 
 	term.component_id = component_id
-	term.component_size = ecs_get_component_size(world, component_id)
-	term.is_pair = ecs_is_pair(term.component_id)
-	term.is_wildcard_pair = ecs_is_wildcard_pair(term.component_id)
+	term.component_size = get_component_size(world, component_id)
+	term.is_pair = is_pair(term.component_id)
+	term.is_wildcard_pair = is_wildcard_pair(term.component_id)
 	term.evaluator = term_component_eval
 	term.optional = optional
 
@@ -234,7 +245,7 @@ term_component_id :: proc(world: ^World, component_id: EntityId, optional := fal
 }
 
 term_type :: proc(world: ^World, $T: typeid, optional := false) -> Query_Term {
-	return term_component_id(world, ecs_get_type_id(world, T), optional)
+	return term_component_id(world, get_type_id(world, T), optional)
 }
 
 term_pair :: proc(
@@ -243,10 +254,10 @@ term_pair :: proc(
 	second: EntityId,
 	optional := false,
 ) -> Query_Term {
-	pair := ecs_build_pair(first, second)
+	pair := build_pair(first, second)
 	term := term_component_id(world, pair, optional)
 
-	if ecs_is_unique_pair(world, pair) && second == Wildcard {
+	if is_unique_pair(world, pair) && second == Wildcard {
 		term.is_unique_pair = true
 	}
 
@@ -254,11 +265,11 @@ term_pair :: proc(
 }
 
 term_pair_1 :: proc(world: ^World, $T: typeid, second: EntityId, optional := false) -> Query_Term {
-	return term_pair(world, ecs_get_type_id(world, T), second, optional)
+	return term_pair(world, get_type_id(world, T), second, optional)
 }
 
 term_pair_2 :: proc(world: ^World, first: EntityId, $T: typeid, optional := false) -> Query_Term {
-	return term_pair(world, first, ecs_get_type_id(world, T), optional)
+	return term_pair(world, first, get_type_id(world, T), optional)
 }
 
 not_term :: proc {
@@ -341,7 +352,7 @@ query_on_archertype_created :: proc(query: ^Query, archetype: ^Archetype) {
 			query_str := query_to_str(query)
 			defer delete(query_str)
 
-			ecs_debug_log("archertype %s added to query matches: %s", arch_str, query_str)
+			debug_log("archertype %s added to query matches: %s", arch_str, query_str)
 		}
 
 		add_cached_match(query, &match)
@@ -359,7 +370,7 @@ query_on_archertype_deleted :: proc(query: ^Query, archetype: ^Archetype) {
 			query_str := query_to_str(query)
 			defer delete(query_str)
 
-			ecs_debug_log("archertype %s was removed from query matches: %s", arch_str, query_str)
+			debug_log("archertype %s was removed from query matches: %s", arch_str, query_str)
 		}
 
 		delete_match(query, match.archetype.component_set.hash)
@@ -403,7 +414,7 @@ evaluate_archetype :: proc(
 	evaluator := Query_Evaluator{world, terms, &match, 0}
 
 	child_of_pair := archetype_get_pair(archetype, ChildOf_Id)
-	_, parent := ecs_pair_split(child_of_pair)
+	_, parent := pair_split(child_of_pair)
 
 	match.archetype = archetype
 	match.parent = parent
@@ -463,11 +474,11 @@ evaluate_wildcard_pair :: proc(world: ^World, match: ^Query_Match, term: ^Query_
 	}
 
 	if term.is_unique_pair {
-		first, second := ecs_pair_split(term.component_id)
+		first, second := pair_split(term.component_id)
 
 		ensure(second == Wildcard)
 		unique_pair := archetype_get_pair(match.archetype, first)
-		_, entity := ecs_pair_split(unique_pair)
+		_, entity := pair_split(unique_pair)
 
 		sa.set(&match.fields, term.index, entity)
 	}

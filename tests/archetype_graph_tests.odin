@@ -6,13 +6,13 @@ import "core:testing"
 
 @(test)
 archetype_graph_tests :: proc(t: ^testing.T) {
-	world := ecs.ecs_create()
-	defer ecs.ecs_destroy(world)
+	world := ecs.create()
+	defer ecs.destroy(world)
 
-	foo: ecs.EntityId = ecs.ecs_new(world)
-	bar: ecs.EntityId = ecs.ecs_new(world)
-	plop: ecs.EntityId = ecs.ecs_new(world)
-	plap: ecs.EntityId = ecs.ecs_new(world)
+	foo: ecs.EntityId = ecs.new(world)
+	bar: ecs.EntityId = ecs.new(world)
+	plop: ecs.EntityId = ecs.new(world)
+	plap: ecs.EntityId = ecs.new(world)
 
 	testing.expect_value(t, len(world.archetypes.nodes), 3)
 	testing.expect(t, world.archetypes.root == world.archetypes.nodes[0])

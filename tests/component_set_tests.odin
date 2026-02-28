@@ -67,9 +67,9 @@ component_set_delete_relationships_tests :: proc(t: ^testing.T) {
 	bar: ecs.EntityId = 2
 	plop: ecs.EntityId = 42
 	plap: ecs.EntityId = 24
-	pair1 := ecs.ecs_build_pair(foo, bar)
-	pair2 := ecs.ecs_build_pair(bar, foo)
-	pair3 := ecs.ecs_build_pair(plop, plap)
+	pair1 := ecs.build_pair(foo, bar)
+	pair2 := ecs.build_pair(bar, foo)
+	pair3 := ecs.build_pair(plop, plap)
 
 	set1 := ecs.set_build([]ecs.EntityId{foo, pair1, pair2, pair3})
 	defer ecs.set_destroy(&set1)

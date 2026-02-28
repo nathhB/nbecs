@@ -1,11 +1,12 @@
 package nbecs
 
+import "base:builtin"
 import "core:fmt"
 import "core:log"
 import "core:mem"
 import vmem "core:mem/virtual"
 
-Archetype_ChunkSize_Bytes :: 16_000
+Archetype_ChunkSize_Bytes :: 32_000
 
 Archetype_Column :: struct {
 	component_id: EntityId,
@@ -35,22 +36,22 @@ archetype_chunk_create :: proc(
 	ensure(err == nil)
 
 	chunk_allocator := vmem.arena_allocator(&chunk_arena)
-	chunk := new(Archetype_Chunk, chunk_allocator)
+	chunk := builtin.new(Archetype_Chunk, chunk_allocator)
 
 	chunk.entities, err = make([dynamic]EntityId, 0, capacity, chunk_allocator)
 	ensure(err == .None)
 
 	chunk.capacity = capacity
 	chunk.archetype = archetype
-	chunk.columns, err = make([]Archetype_Column, len(component_set.components), chunk_allocator)
+	chunk.columns, err = make([]Archetype_Column, archetype.column_count, chunk_allocator)
 	ensure(err == .None)
 
-	idx := 0
+	col_idx := 0
 	for component_id, _ in component_set.components {
-		component_size := ecs_get_component_size(world, component_id)
+		component_size := get_component_size(world, component_id)
 
 		if component_size > 0 {
-			column := &chunk.columns[idx]
+			column := &chunk.columns[col_idx]
 
 			err := init_column(
 				column,
@@ -63,17 +64,19 @@ archetype_chunk_create :: proc(
 			if err != .None {
 				fmt.panicf(
 					"Failed to allocate memory for chunk column %d of archetype %s: %w",
-					idx,
+					col_idx,
 					archetype_to_str(world, archetype),
 					err,
 				)
 			}
 
-			idx += 1
+			col_idx += 1
 		}
 	}
 
-	chunk.column_count = idx
+	assert(col_idx == archetype.column_count)
+
+	chunk.column_count = archetype.column_count
 	chunk.buffer = buffer
 
 	return chunk
@@ -94,34 +97,25 @@ archetype_chunk_delete_entity :: proc(chunk: ^Archetype_Chunk, row: int) -> Enti
 	// effectively swaping the deleted row with the last one
 	// we need to return the entity that was moved so its row indew can be updated
 
-	chunk_count := len(chunk.entities)
-	delete_last := row == chunk_count - 1
+	row_count := len(chunk.entities)
+	delete_last := row == row_count - 1
 
 	if !delete_last {
 		for col_idx := 0; col_idx < chunk.column_count; col_idx += 1 {
 			col := &chunk.columns[col_idx]
-			last_row := archetype_chunk_get_data(chunk, col_idx, chunk_count - 1)
-			dest_row := archetype_chunk_get_data(chunk, col_idx, row)
+			last_row := archetype_chunk_get_data(col, row_count - 1)
+			dest_row := archetype_chunk_get_data(col, row)
 
 			mem.copy(dest_row, last_row, col.item_size)
 		}
 
-		moved_entity = chunk.entities[chunk_count - 1]
+		moved_entity = chunk.entities[row_count - 1]
 	}
 
 	unordered_remove(&chunk.entities, row)
-	assert(len(chunk.entities) == chunk_count - 1)
+	assert(len(chunk.entities) == row_count - 1)
 
 	return moved_entity
-}
-
-archetype_chunk_get_data :: #force_inline proc(
-	chunk: ^Archetype_Chunk,
-	col_idx: int,
-	row: int,
-) -> rawptr {
-	assert(col_idx < chunk.column_count)
-	return archetype_column_get_data(&chunk.columns[col_idx], row)
 }
 
 archetype_chunk_set_data :: proc(chunk: ^Archetype_Chunk, col_idx: int, row: int, data: rawptr) {
@@ -136,6 +130,27 @@ archetype_chunk_set_data :: proc(chunk: ^Archetype_Chunk, col_idx: int, row: int
 	dest := rawptr(uintptr(col.rows) + offset)
 
 	mem.copy(dest, data, col.item_size)
+}
+
+archetype_chunk_get_data :: proc {
+	archetype_chunk_get_data_col,
+	archetype_chunk_get_data_col_idx,
+}
+
+archetype_chunk_get_data_col :: #force_inline proc(col: ^Archetype_Column, row: int) -> rawptr {
+	offset := uintptr(row * col.item_size)
+
+	return rawptr(uintptr(col.rows) + offset)
+}
+
+archetype_chunk_get_data_col_idx :: #force_inline proc(
+	chunk: ^Archetype_Chunk,
+	col_idx: int,
+	row: int,
+) -> rawptr {
+	col := &chunk.columns[col_idx]
+
+	return archetype_chunk_get_data_col(col, row)
 }
 
 archetype_chunk_get_column_index :: proc(chunk: ^Archetype_Chunk, component_id: EntityId) -> int {
@@ -161,16 +176,18 @@ archetype_chunk_copy_row :: proc(
 		assert(dest_col_count - src_col_count == 1)
 
 		for src_col_idx := 0; src_col_idx < src_col_count; src_col_idx += 1 {
-			row_data := archetype_chunk_get_data(src_chunk, src_col_idx, src_row)
-			src_component_id := src_chunk.columns[src_col_idx].component_id
+			src_col := &src_chunk.columns[src_col_idx]
+			row_data := archetype_chunk_get_data(src_col, src_row)
+			src_component_id := src_col.component_id
 			dest_col_idx := dest_chunk.archetype.component_column_map[src_component_id]
 
 			archetype_chunk_set_data(dest_chunk, dest_col_idx, dest_row, row_data)
 		}
 	} else {
 		for src_col_idx := 0; src_col_idx < src_col_count; src_col_idx += 1 {
-			row_data := archetype_chunk_get_data(src_chunk, src_col_idx, src_row)
-			src_component_id := src_chunk.columns[src_col_idx].component_id
+			src_col := &src_chunk.columns[src_col_idx]
+			src_component_id := src_col.component_id
+			row_data := archetype_chunk_get_data(src_col, src_row)
 
 			if set_has(&dest_chunk.archetype.component_set, src_component_id) {
 				dest_col_idx := dest_chunk.archetype.component_column_map[src_component_id]

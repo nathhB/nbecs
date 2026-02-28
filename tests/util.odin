@@ -101,7 +101,7 @@ expect_entity_archetype :: proc(
 	expected_archetype: ^ecs.Archetype,
 	loc := #caller_location,
 ) {
-	testing.expectf(t, ecs.ecs_is_valid(world, entity), "entity is not valid", loc = loc)
+	testing.expectf(t, ecs.is_valid(world, entity), "entity is not valid", loc = loc)
 	testing.expect_value(t, world.entities[entity].chunk.archetype, expected_archetype, loc)
 }
 
@@ -208,7 +208,7 @@ expect_filter_matched_entities :: proc(
 ) {
 	match_count := 0
 
-	it := ecs.filter_iter(world, ..terms, allocator = context.temp_allocator)
+	it := ecs.iter(world, ..terms, allocator = context.temp_allocator)
 
 	for chunk in ecs.iter_next_chunk(&it) {
 		for row := 0; row < len(chunk.entities); row += 1 {
