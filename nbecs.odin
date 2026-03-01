@@ -555,30 +555,32 @@ emit_data :: proc(world: ^World, event: EntityId, entity: EntityId, data: rawptr
 	watcher_pair := build_pair(world, Watcher, event)
 	it := iter(world, term(world, watcher_pair), allocator = world.temp_allocator)
 
-	for chunk in iter_next_chunk(&it) {
+	for iter_next_match(&it) {
 		watcher_col := column(&it, 0)
 
-		for row := 0; row < len(chunk.entities); row += 1 {
-			watcher := row_data(watcher_col, row, Watcher)
+		for chunk in iter_next_chunk(&it) {
+			for row := 0; row < len(chunk.entities); row += 1 {
+				watcher := row_data(chunk, watcher_col, row, Watcher)
 
-			if query_matches_archetype(watcher.query, archetype) {
-				match := evaluate_archetype(
-					world,
-					watcher.query.terms,
-					archetype,
-					world.temp_allocator,
-				) or_continue
-				it2 := Query_Iterator {
-					world,
-					watcher.query.terms,
-					[]Query_Match{match},
-					&match,
-					entry.chunk,
-					0,
-					0,
+				if query_matches_archetype(watcher.query, archetype) {
+					match := evaluate_archetype(
+						world,
+						watcher.query.terms,
+						archetype,
+						world.temp_allocator,
+					) or_continue
+					it2 := Query_Iterator {
+						world,
+						watcher.query.terms,
+						[]Query_Match{match},
+						&match,
+						entry.chunk,
+						0,
+						0,
+					}
+
+					watcher.procedure(world, entity, &it2, entry.row, watcher.ctx, data)
 				}
-
-				watcher.procedure(world, entity, &it2, entry.row, watcher.ctx, data)
 			}
 		}
 	}
@@ -1086,13 +1088,15 @@ update :: proc(world: ^World, dt: f64, pipeline := Pipeline_Default) {
 
 	it := iter(pipeline.query)
 
-	for chunk in iter_next_chunk(&it) {
+	for iter_next_match(&it) {
 		col := column(&it, 0)
 
-		for row := 0; row < len(chunk.entities); row += 1 {
-			system := row_data(col, row, System)
+		for chunk in iter_next_chunk(&it) {
+			for row := 0; row < len(chunk.entities); row += 1 {
+				system := row_data(chunk, col, row, System)
 
-			update_system(world, &system, dt)
+				update_system(world, &system, dt)
+			}
 		}
 	}
 
@@ -1112,7 +1116,7 @@ update_system :: proc(world: ^World, system_data: ^System, dt: f64) {
 	} else {
 		it := iter(system_data.query)
 
-		for _ in iter_next_chunk(&it) {
+		for iter_next_match(&it) {
 			system_data.update_proc(world, &it, dt, system_data.ctx)
 		}
 	}
@@ -1151,9 +1155,11 @@ get_children :: proc(
 
 	children := make([dynamic]EntityId, allocator = allocator)
 
-	for chunk in iter_next_chunk(&it) {
-		for row := 0; row < len(chunk.entities); row += 1 {
-			append(&children, chunk.entities[row])
+	for iter_next_match(&it) {
+		for chunk in iter_next_chunk(&it) {
+			for row := 0; row < len(chunk.entities); row += 1 {
+				append(&children, chunk.entities[row])
+			}
 		}
 	}
 

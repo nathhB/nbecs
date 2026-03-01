@@ -115,15 +115,17 @@ expect_query_matched_archetypes :: proc(
 
 	it := ecs.query_iter(query)
 
-	for _ in ecs.iter_next_chunk(&it) {
-		match_count += 1
+	for ecs.iter_next_match(&it) {
+		for _ in ecs.iter_next_chunk(&it) {
+			match_count += 1
 
-		testing.expectf(
-			t,
-			slice.contains(expected_archetypes, it.current_match.archetype),
-			"query matched an unexpected archetype",
-			loc = loc,
-		)
+			testing.expectf(
+				t,
+				slice.contains(expected_archetypes, it.current_match.archetype),
+				"query matched an unexpected archetype",
+				loc = loc,
+			)
+		}
 	}
 
 	testing.expectf(
@@ -146,18 +148,20 @@ expect_query_matched_entities :: proc(
 
 	it := ecs.query_iter(query)
 
-	for chunk in ecs.iter_next_chunk(&it) {
-		for row := 0; row < len(chunk.entities); row += 1 {
-			entity := chunk.entities[row]
-			match_count += 1
+	for ecs.iter_next_match(&it) {
+		for chunk in ecs.iter_next_chunk(&it) {
+			for row := 0; row < len(chunk.entities); row += 1 {
+				entity := chunk.entities[row]
+				match_count += 1
 
-			testing.expectf(
-				t,
-				slice.contains(expected_entities, entity),
-				"query matched an unexpected entity: %d",
-				entity,
-				loc = loc,
-			)
+				testing.expectf(
+					t,
+					slice.contains(expected_entities, entity),
+					"query matched an unexpected entity: %d",
+					entity,
+					loc = loc,
+				)
+			}
 		}
 	}
 
@@ -181,11 +185,13 @@ expect_query_matched_entities_in_order :: proc(
 	matched_entities := make([dynamic]ecs.EntityId)
 	defer delete(matched_entities)
 
-	for chunk in ecs.iter_next_chunk(&it) {
-		for row := 0; row < len(chunk.entities); row += 1 {
-			entity := chunk.entities[row]
+	for ecs.iter_next_match(&it) {
+		for chunk in ecs.iter_next_chunk(&it) {
+			for row := 0; row < len(chunk.entities); row += 1 {
+				entity := chunk.entities[row]
 
-			append(&matched_entities, entity)
+				append(&matched_entities, entity)
+			}
 		}
 	}
 
@@ -210,18 +216,20 @@ expect_filter_matched_entities :: proc(
 
 	it := ecs.iter(world, ..terms, allocator = context.temp_allocator)
 
-	for chunk in ecs.iter_next_chunk(&it) {
-		for row := 0; row < len(chunk.entities); row += 1 {
-			entity := chunk.entities[row]
-			match_count += 1
+	for ecs.iter_next_match(&it) {
+		for chunk in ecs.iter_next_chunk(&it) {
+			for row := 0; row < len(chunk.entities); row += 1 {
+				entity := chunk.entities[row]
+				match_count += 1
 
-			testing.expectf(
-				t,
-				slice.contains(expected_entities, entity),
-				"query matched an unexpected entity: %d",
-				entity,
-				loc = loc,
-			)
+				testing.expectf(
+					t,
+					slice.contains(expected_entities, entity),
+					"query matched an unexpected entity: %d",
+					entity,
+					loc = loc,
+				)
+			}
 		}
 	}
 

@@ -206,13 +206,15 @@ row_data_tests :: proc(t: ^testing.T) {
 
 	it := ecs.query_iter(q1)
 
-	for chunk in ecs.iter_next_chunk(&it) {
+	for ecs.iter_next_match(&it) {
 		col := ecs.column(&it, 0)
 
-		for row := 0; row < len(chunk.entities); row += 1 {
-			p := ecs.row_data_mut(col, row, Posseses)
+		for chunk in ecs.iter_next_chunk(&it) {
+			for row := 0; row < len(chunk.entities); row += 1 {
+				p := ecs.row_data_mut(chunk, col, row, Posseses)
 
-			p.amount *= 2
+				p.amount *= 2
+			}
 		}
 	}
 
@@ -245,18 +247,20 @@ query_unique_pair_entity_tests :: proc(t: ^testing.T) {
 
 	it := ecs.query_iter(q)
 
-	for chunk in ecs.iter_next_chunk(&it) {
+	for ecs.iter_next_match(&it) {
 		possessed_entity := ecs.unique_pair_entity(&it, 0)
 
-		for row := 0; row < len(chunk.entities); row += 1 {
-			entity := chunk.entities[row]
+		for chunk in ecs.iter_next_chunk(&it) {
+			for row := 0; row < len(chunk.entities); row += 1 {
+				entity := chunk.entities[row]
 
-			if entity == e1 {
-				testing.expect_value(t, possessed_entity, apple)
-			} else if entity == e2 {
-				testing.expect_value(t, possessed_entity, pear)
-			} else {
-				unreachable()
+				if entity == e1 {
+					testing.expect_value(t, possessed_entity, apple)
+				} else if entity == e2 {
+					testing.expect_value(t, possessed_entity, pear)
+				} else {
+					unreachable()
+				}
 			}
 		}
 	}
@@ -364,7 +368,7 @@ query_parent_component_tests :: proc(t: ^testing.T) {
 	expect_query_matched_entities(t, q1, []ecs.EntityId{e1, e2, e3})
 
 	for i := 0; i < len(it.matches); i += 1 {
-		ecs.iter_next_chunk(&it)
+		ecs.iter_next_match(&it)
 
 		if it.current_match.archetype == world.entities[e1].chunk.archetype {
 			testing.expect_value(t, it.current_match.parent, 0)
@@ -455,25 +459,27 @@ filter_match_entities_tests :: proc(t: ^testing.T) {
 		allocator = context.temp_allocator,
 	)
 
-	for chunk in ecs.iter_next_chunk(&it) {
+	for ecs.iter_next_match(&it) {
 		foo_col := ecs.column(&it, 0)
 		bar_col := ecs.column(&it, 1)
 
-		for row := 0; row < len(chunk.entities); row += 1 {
-			entity := chunk.entities[row]
+		for chunk in ecs.iter_next_chunk(&it) {
+			for row := 0; row < len(chunk.entities); row += 1 {
+				entity := chunk.entities[row]
 
-			if entity == e1 {
-				foo := ecs.row_data(foo_col, row, Foo)
-				bar := ecs.row_data(bar_col, row, Bar)
+				if entity == e1 {
+					foo := ecs.row_data(chunk, foo_col, row, Foo)
+					bar := ecs.row_data(chunk, bar_col, row, Bar)
 
-				testing.expect_value(t, 42, foo.v)
-				testing.expect_value(t, 4242, bar.v)
-			} else if entity == e2 {
-				foo := ecs.row_data(foo_col, row, Foo)
-				bar := ecs.row_data(bar_col, row, Bar)
+					testing.expect_value(t, 42, foo.v)
+					testing.expect_value(t, 4242, bar.v)
+				} else if entity == e2 {
+					foo := ecs.row_data(chunk, foo_col, row, Foo)
+					bar := ecs.row_data(chunk, bar_col, row, Bar)
 
-				testing.expect_value(t, 24, foo.v)
-				testing.expect_value(t, 2424, bar.v)
+					testing.expect_value(t, 24, foo.v)
+					testing.expect_value(t, 2424, bar.v)
+				}
 			}
 		}
 	}

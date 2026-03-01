@@ -153,55 +153,59 @@ system_pipelines_str_tests :: proc(t: ^testing.T) {
 }
 
 system1 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr) -> bool {
-	chunk := it.current_chunk
 	foo_col := ecs.column(it, 0)
 
-	for row := 0; row < len(chunk.entities); row += 1 {
-		foo := ecs.row_data_mut(foo_col, row, Foo)
+	for chunk in ecs.iter_next_chunk(it) {
+		for row := 0; row < len(chunk.entities); row += 1 {
+			foo := ecs.row_data_mut(chunk, foo_col, row, Foo)
 
-		foo.v *= 2
+			foo.v *= 2
+		}
 	}
 
 	return true
 }
 
 system2 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr) -> bool {
-	chunk := it.current_chunk
 	foo_col := ecs.column(it, 0)
 	bar_col := ecs.column(it, 1)
 
-	for row := 0; row < len(chunk.entities); row += 1 {
-		foo := ecs.row_data_mut(foo_col, row, Foo)
-		bar := ecs.row_data_mut(bar_col, row, Bar)
+	for chunk in ecs.iter_next_chunk(it) {
+		for row := 0; row < len(chunk.entities); row += 1 {
+			foo := ecs.row_data_mut(chunk, foo_col, row, Foo)
+			bar := ecs.row_data_mut(chunk, bar_col, row, Bar)
 
-		foo.v += 50
-		bar.v += 100
+			foo.v += 50
+			bar.v += 100
+		}
 	}
 
 	return true
 }
 
 system3 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr) -> bool {
-	chunk := it.current_chunk
 	foo_col := ecs.column(it, 0)
 
-	for row := 0; row < len(chunk.entities); row += 1 {
-		foo := ecs.row_data_mut(foo_col, row, Foo)
+	for chunk in ecs.iter_next_chunk(it) {
+		for row := 0; row < len(chunk.entities); row += 1 {
+			foo := ecs.row_data_mut(chunk, foo_col, row, Foo)
 
-		foo.v += 5
+			foo.v += 5
+		}
 	}
 
 	return true
 }
 
 system4 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr) -> bool {
-	chunk := it.current_chunk
 	foo_col := ecs.column(it, 0)
 
-	for row := 0; row < len(chunk.entities); row += 1 {
-		foo := ecs.row_data_mut(foo_col, row, Foo)
+	for chunk in ecs.iter_next_chunk(it) {
+		for row := 0; row < len(chunk.entities); row += 1 {
+			foo := ecs.row_data_mut(chunk, foo_col, row, Foo)
 
-		foo.v -= 10
+			foo.v -= 10
+		}
 	}
 
 	return true

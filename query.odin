@@ -110,13 +110,6 @@ iter :: proc {
 }
 
 query_iter :: proc(query: ^Query) -> Query_Iterator {
-	// when ECS_DEBUG {
-	// 	query_str := query_to_str(query)
-	// 	defer delete(query_str)
-	//
-	// 	debug_log("started iterating query: %s", query_str)
-	// }
-
 	return Query_Iterator{query.world, query.terms, query.matches[:], nil, nil, 0, 0}
 }
 
@@ -146,48 +139,45 @@ archetype_iter :: proc(
 	matches[0].archetype = archetype
 
 	it := Query_Iterator{world, nil, matches, nil, nil, 0, 0}
+	iter_next_match(&it)
 	iter_next_chunk(&it)
 
 	return it
 }
 
-iter_next_chunk :: proc(iterator: ^Query_Iterator) -> (chunk: ^Archetype_Chunk, has_more: bool) {
+iter_next_match :: proc(iterator: ^Query_Iterator) -> bool {
 	if iterator.next_match_index >= len(iterator.matches) {
-		return nil, false
+		return false
 	}
 
 	iterator.current_match = &iterator.matches[iterator.next_match_index]
-	archetype := iterator.current_match.archetype
+	iterator.next_match_index += 1
+	iterator.next_chunk_index = 0
 
-	if iterator.next_chunk_index < len(archetype.chunks) {
-		iterator.current_chunk = archetype.chunks[iterator.next_chunk_index]
-		iterator.next_chunk_index += 1
-
-		return iterator.current_chunk, true
-	} else {
-		iterator.next_match_index += 1
-		iterator.next_chunk_index = 0
-
-		return iter_next_chunk(iterator)
-	}
-
-	// when ECS_DEBUG {
-	// 	arch_str := archetype_to_str(iterator.world, iterator.current_match.archetype)
-	// 	defer delete(arch_str)
-	//
-	// 	debug_log("matched archetype: %s %w", arch_str, iterator.current_match)
-	// }
+	return true
 }
 
-column :: proc(iterator: ^Query_Iterator, index: int) -> ^Archetype_Column {
+iter_next_chunk :: proc(iterator: ^Query_Iterator) -> (chunk: ^Archetype_Chunk, has_more: bool) {
+	archetype := iterator.current_match.archetype
+
+	if iterator.next_chunk_index >= len(archetype.chunks) {
+		return nil, false
+	}
+
+	iterator.current_chunk = archetype.chunks[iterator.next_chunk_index]
+	iterator.next_chunk_index += 1
+
+	return iterator.current_chunk, true
+}
+
+column :: proc(iterator: ^Query_Iterator, index: int) -> int {
 	ensure(iterator.current_match != nil)
 	ensure(index < sa.len(iterator.current_match.fields))
 
 	fields := sa.slice(&iterator.current_match.fields)
 	field := &fields[index]
-	col_idx := field.(Query_Column_Index)
 
-	return &iterator.current_chunk.columns[col_idx]
+	return field.(Query_Column_Index)
 }
 
 unique_pair_column :: proc(iterator: ^Query_Iterator, $T: typeid) -> ^Archetype_Column {
@@ -211,12 +201,12 @@ unique_pair_entity :: proc(iterator: ^Query_Iterator, index: int) -> EntityId {
 	return fields[index].(EntityId)
 }
 
-row_data :: #force_inline proc(col: ^Archetype_Column, row: int, $T: typeid) -> T {
-	return row_data_mut(col, row, T)^
+row_data :: #force_inline proc(chunk: ^Archetype_Chunk, col: int, row: int, $T: typeid) -> T {
+	return row_data_mut(chunk, col, row, T)^
 }
 
-row_data_mut :: #force_inline proc(col: ^Archetype_Column, row: int, $T: typeid) -> ^T {
-	return (^T)(archetype_chunk_get_data(col, row))
+row_data_mut :: #force_inline proc(chunk: ^Archetype_Chunk, col: int, row: int, $T: typeid) -> ^T {
+	return (^T)(archetype_chunk_get_data(chunk, col, row))
 }
 
 query_get_parent :: proc(it: ^Query_Iterator) -> EntityId {
