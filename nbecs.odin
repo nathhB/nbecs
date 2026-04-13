@@ -12,7 +12,7 @@ EntityId :: u64
 
 // raw entity ids have to fit in 3 bytes
 // "raw" meaning the id without generation and id flags
-EntityId_Raw_Max :: 16_777_215
+EntityId_Raw_Max :: u64(16_777_215)
 
 ReservedIDs :: 32
 @(thread_local)
@@ -159,7 +159,7 @@ create :: proc(allocator := context.allocator) -> ^World {
 
 	ensure(world.next_entity_id <= ReservedIDs + 1)
 	world.config.default_delete_strategy = DeleteStrategy_Remove
-	set_id_range(world, ReservedIDs + 1, u64(max(u32)))
+	set_id_range_bounds(world, ReservedIDs + 1, EntityId_Raw_Max)
 
 	return world
 }
@@ -1185,12 +1185,16 @@ find :: proc(world: ^World, name: string) -> (entity: EntityId, exists: bool) {
 	return
 }
 
-set_id_range :: proc(world: ^World, r_min: EntityId, r_max: EntityId) {
+set_id_range :: proc(world: ^World, range: [2]EntityId) {
+	set_id_range_bounds(world, range[0], range[1])
+}
+
+set_id_range_bounds :: proc(world: ^World, r_min: EntityId, r_max: EntityId) {
 	if world.frozen {
 		panic("Attempted to modify a frozen world")
 	}
 
-	ensure(r_min > ReservedIDs && r_max <= u64(max(u32)))
+	ensure(r_min > ReservedIDs && r_max <= EntityId_Raw_Max)
 
 	world.config.id_range = [2]EntityId{r_min, r_max}
 	world.next_entity_id = world.config.id_range[0]
