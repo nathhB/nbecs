@@ -1178,11 +1178,18 @@ get_name :: proc(world: ^World, entity: EntityId) -> string {
 	return world.entities[entity].name
 }
 
-find :: proc(world: ^World, name: string) -> (entity: EntityId, exists: bool) {
+find_safe :: proc(world: ^World, name: string) -> (entity: EntityId, exists: bool) {
 	entity, exists = world.names_index[name]
 	ensure(!exists || is_valid(world, entity))
 
 	return
+}
+
+find :: proc(world: ^World, name: string) -> EntityId {
+	entity, exists := find_safe(world, name)
+	ensure(!exists || is_valid(world, entity))
+
+	return entity
 }
 
 set_id_range :: proc(world: ^World, range: [2]EntityId) {

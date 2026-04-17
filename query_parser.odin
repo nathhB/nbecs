@@ -56,7 +56,7 @@ parse_query :: proc(
 		if is_pair {
 			t = parse_pair(world, token.str)
 		} else {
-			component, exists := find(world, token.str)
+			component, exists := find_safe(world, token.str)
 
 			if !exists {
 				fmt.panicf("Failed to parse query: %s does not exist", token.str)
@@ -128,10 +128,8 @@ parse_pair :: proc(world: ^World, pair_str: string, allocator := context.allocat
 	first, second: EntityId
 	exists: bool
 
-	first, exists = find(world, first_name)
-	ensure(exists)
-	second, exists = find(world, second_name)
-	ensure(exists)
+	first = find(world, first_name)
+	second = find(world, second_name)
 
 	return term(world, first, second)
 }

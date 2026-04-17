@@ -269,22 +269,22 @@ find_tests :: proc(t: ^testing.T) {
 	e2 := ecs.new(world, "E2")
 	e3 := ecs.new(world, "E3")
 
-	e, exists := ecs.find(world, "E1")
+	e, exists := ecs.find_safe(world, "E1")
 	testing.expect(t, exists)
 	testing.expect_value(t, e, e1)
-	e, exists = ecs.find(world, "E2")
+	e, exists = ecs.find_safe(world, "E2")
 	testing.expect(t, exists)
 	testing.expect_value(t, e, e2)
-	e, exists = ecs.find(world, "E3")
+	e, exists = ecs.find_safe(world, "E3")
 	testing.expect(t, exists)
 	testing.expect_value(t, e, e3)
-	e, exists = ecs.find(world, "E4")
+	e, exists = ecs.find_safe(world, "E4")
 	testing.expect(t, !exists)
 	testing.expect_value(t, e, 0)
 
 	ecs.delete(world, e2)
 
-	e, exists = ecs.find(world, "E2")
+	e, exists = ecs.find_safe(world, "E2")
 	testing.expect(t, !exists)
 	testing.expect_value(t, e, 0)
 }
