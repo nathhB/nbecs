@@ -21,9 +21,12 @@ Query_Term :: struct {
 
 Query_Column_Index :: int
 
-Query_Field :: union {
-	Query_Column_Index,
-	EntityId,
+Query_Field :: struct {
+	exists: bool,
+	data:   union {
+		Query_Column_Index,
+		EntityId,
+	},
 }
 
 Query_Match :: struct {
@@ -171,13 +174,24 @@ iter_next_chunk :: proc(iterator: ^Query_Iterator) -> (chunk: ^Archetype_Chunk, 
 }
 
 column :: proc(iterator: ^Query_Iterator, index: int) -> int {
+	col, exists := column_maybe(iterator, index)
+	ensure(exists)
+
+	return col
+}
+
+column_maybe :: proc(iterator: ^Query_Iterator, index: int) -> (col: int, exists: bool) {
 	ensure(iterator.current_match != nil)
 	ensure(index < sa.len(iterator.current_match.fields))
 
 	fields := sa.slice(&iterator.current_match.fields)
 	field := &fields[index]
 
-	return field.(Query_Column_Index)
+	if !field.exists {
+		return -1, false
+	}
+
+	return field.data.(Query_Column_Index), true
 }
 
 unique_pair_column :: proc(iterator: ^Query_Iterator, $T: typeid) -> ^Archetype_Column {
@@ -198,7 +212,7 @@ unique_pair_entity :: proc(iterator: ^Query_Iterator, index: int) -> EntityId {
 
 	fields := sa.slice(&iterator.current_match.fields)
 
-	return fields[index].(EntityId)
+	return fields[index].data.(EntityId)
 }
 
 row_data :: #force_inline proc(chunk: ^Archetype_Chunk, col: int, row: int, $T: typeid) -> T {
@@ -451,7 +465,8 @@ term_component_eval :: proc(evaluator: ^Query_Evaluator, term: ^Query_Term) -> b
 	if term.component_size > 0 {
 		col_idx := has ? match.archetype.component_column_map[term.component_id] : -1
 
-		sa.set(&match.fields, term.index, col_idx)
+		field := Query_Field{has, col_idx}
+		sa.set(&match.fields, term.index, field)
 	}
 
 	return true
@@ -470,7 +485,8 @@ evaluate_wildcard_pair :: proc(world: ^World, match: ^Query_Match, term: ^Query_
 		unique_pair := archetype_get_pair(match.archetype, first)
 		_, entity := pair_split(unique_pair)
 
-		sa.set(&match.fields, term.index, entity)
+		field := Query_Field{true, entity}
+		sa.set(&match.fields, term.index, field)
 	}
 
 	return true

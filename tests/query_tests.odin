@@ -341,6 +341,52 @@ query_optional_term_tests :: proc(t: ^testing.T) {
 }
 
 @(test)
+query_fetch_optional_data :: proc(t: ^testing.T) {
+	world := ecs.create()
+	defer ecs.destroy(world)
+
+	foo: ecs.EntityId = ecs.declare(world, Foo)
+	bar: ecs.EntityId = ecs.declare(world, Bar)
+	plop: ecs.EntityId = ecs.new(world)
+	plap: ecs.EntityId = ecs.new(world)
+
+	e1 := ecs.new(world)
+	e2 := ecs.new(world)
+	e3 := ecs.new(world)
+
+	ecs.set(world, e1, &Foo{42})
+	ecs.add(world, e1, plop)
+
+	ecs.set(world, e2, &Foo{142})
+	ecs.set(world, e2, &Bar{200})
+	ecs.add(world, e2, plap)
+
+	ecs.set(world, e3, &Foo{300})
+
+	q := ecs.query(world, ecs.term(world, Foo), ecs.term(world, Bar, optional = true))
+	it := ecs.iter(q)
+
+	for ecs.iter_next_match(&it) {
+		foo_col := ecs.column(&it, 0)
+		bar_col, bar_exists := ecs.column_maybe(&it, 1)
+
+		for chunk in ecs.iter_next_chunk(&it) {
+			for row := 0; row < len(chunk.entities); row += 1 {
+				entity := chunk.entities[row]
+
+				if bar_exists {
+					bar := ecs.row_data(chunk, bar_col, row, Bar)
+
+					testing.expect_value(t, chunk.entities[row], e2)
+				} else {
+					testing.expect(t, entity == e1 || entity == e3)
+				}
+			}
+		}
+	}
+}
+
+@(test)
 query_parent_component_tests :: proc(t: ^testing.T) {
 	world := ecs.create()
 	defer ecs.destroy(world)
