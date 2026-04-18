@@ -735,7 +735,18 @@ get_pair_size :: proc(world: ^World, pair: EntityId) -> int {
 	return component_id > 0 ? get_component_size(world, component_id) : 0
 }
 
-add :: proc(world: ^World, entity: EntityId, add_entity: EntityId) -> bool {
+add :: proc {
+	add_by_name,
+	add_by_id,
+}
+
+add_by_name :: proc(world: ^World, entity: EntityId, add_entity_name: string) -> bool {
+	add_entity := find(world, add_entity_name)
+
+	return add_by_id(world, entity, add_entity)
+}
+
+add_by_id :: proc(world: ^World, entity: EntityId, add_entity: EntityId) -> bool {
 	if world.frozen {
 		panic("Attempted to modify a frozen world")
 	}
@@ -928,6 +939,7 @@ remove_type :: proc(world: ^World, entity: EntityId, rm_component: typeid) -> bo
 has :: proc {
 	has_id,
 	has_type,
+	has_name,
 }
 
 has_id :: proc(world: ^World, entity: EntityId, other: EntityId) -> bool {
@@ -944,6 +956,12 @@ has_type :: proc(world: ^World, entity: EntityId, $T: typeid) -> bool {
 	ensure(is_type(world, component_id))
 
 	return has_id(world, entity, component_id)
+}
+
+has_name :: proc(world: ^World, entity: EntityId, name: string) -> bool {
+	other := find(world, name)
+
+	return has_id(world, entity, other)
 }
 
 has_pair :: proc {
