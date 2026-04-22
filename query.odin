@@ -233,6 +233,7 @@ term :: proc {
 	term_pair,
 	term_pair_1,
 	term_pair_2,
+	term_name,
 }
 
 term_component_id :: proc(world: ^World, component_id: EntityId, optional := false) -> Query_Term {
@@ -250,6 +251,10 @@ term_component_id :: proc(world: ^World, component_id: EntityId, optional := fal
 
 term_type :: proc(world: ^World, $T: typeid, optional := false) -> Query_Term {
 	return term_component_id(world, get_type_id(world, T), optional)
+}
+
+term_name :: proc(world: ^World, name: string, optional := false) -> Query_Term {
+	return term_component_id(world, find(world, name), optional)
 }
 
 term_pair :: proc(
