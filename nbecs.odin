@@ -15,26 +15,16 @@ EntityId :: u64
 EntityId_Raw_Max :: u64(16_777_215)
 
 ReservedIDs :: 32
-@(thread_local)
-TypeTrait: EntityId
-@(thread_local)
-Wildcard: EntityId
-@(thread_local)
-ChildOf_Id: EntityId
-@(thread_local)
-Pipeline_Default: EntityId
-@(thread_local)
-OnDelete: EntityId
-@(thread_local)
-UniquePair: EntityId
-@(thread_local)
-DeleteStrategy_Delete: EntityId
-@(thread_local)
-DeleteStrategy_Remove: EntityId
-@(thread_local)
-Prefab: EntityId
-@(thread_local)
-Event_Deleted: EntityId
+TypeTrait: EntityId = 1
+Wildcard: EntityId = 2
+ChildOf_Id: EntityId = 3
+Pipeline_Default: EntityId = 4
+OnDelete: EntityId = 5
+UniquePair: EntityId = 6
+DeleteStrategy_Delete: EntityId = 7
+DeleteStrategy_Remove: EntityId = 8
+Prefab: EntityId = 9
+Event_Deleted: EntityId = 10
 
 Component_Type :: struct {
 	type: typeid,
@@ -140,21 +130,22 @@ create :: proc(allocator := context.allocator) -> ^World {
 
 	archetype_graph_init(world, &world.archetypes, allocator)
 
-	TypeTrait = new(world, "TypeTrait")
-	Wildcard = new(world, "*", u8(EntityId_Flags.Reserved))
-	OnDelete = new(world, "OnDelete")
-	DeleteStrategy_Delete = new(world, "Delete")
-	DeleteStrategy_Remove = new(world, "Remove")
-	UniquePair = new(world, "UniquePair")
-	Prefab = new(world, "Prefab")
-	Event_Deleted = new(world, "Event_Deleted")
-
+	new_with_id(world, TypeTrait, "TypeTrait")
+	new_with_id(world, Wildcard, "*")
+	new_with_id(world, OnDelete, "OnDelete")
+	new_with_id(world, DeleteStrategy_Delete, "Delete")
+	new_with_id(world, DeleteStrategy_Remove, "Remove")
+	new_with_id(world, UniquePair, "UniquePair")
+	new_with_id(world, Prefab, "Prefab")
+	new_with_id(world, Event_Deleted, "Event_Deleted")
 
 	declare(world, System, "System")
-	Pipeline_Default = pipeline(world, "DefaultPipeline")
 	declare(world, Watcher, "Watcher")
-	ChildOf_Id = declare(world, ChildOf, "ChildOf")
 
+	new_with_id(world, Pipeline_Default, "Pipeline_Default")
+	pipeline_with_id(world, Pipeline_Default)
+
+	declare_with_id(world, ChildOf_Id, ChildOf, "ChildOf")
 	add(world, ChildOf_Id, UniquePair)
 
 	ensure(world.next_entity_id <= ReservedIDs + 1)
@@ -204,13 +195,18 @@ destroy :: proc(world: ^World) {
 	free(world, world.allocator)
 }
 
+pipeline_with_id :: proc(world: ^World, entity: EntityId) {
+	query := query(world, term(world, System), term(world, entity), allocator = world.allocator)
+
+	world.pipelines[entity] = Pipeline{entity, query}
+}
+
 pipeline :: proc(world: ^World, name: string) -> EntityId {
 	ensure(!world.snapshot, "Cannot create a pipeline on a snapshot world")
 
 	entity := new(world, name)
-	query := query(world, term(world, System), term(world, entity), allocator = world.allocator)
 
-	world.pipelines[entity] = Pipeline{entity, query}
+	pipeline_with_id(world, entity)
 
 	return entity
 }
@@ -289,6 +285,18 @@ new_with_id :: proc(world: ^World, entity: EntityId, name: string = "") {
 
 declare :: proc(world: ^World, $T: typeid, name: string = "", flags: u8 = 0) -> EntityId {
 	entity := new(world, name, flags)
+
+	return declare_type(world, entity, T, size_of(T))
+}
+
+declare_with_id :: proc(
+	world: ^World,
+	entity: EntityId,
+	$T: typeid,
+	name: string = "",
+	flags: u8 = 0,
+) -> EntityId {
+	new_with_id(world, entity, name)
 
 	return declare_type(world, entity, T, size_of(T))
 }
