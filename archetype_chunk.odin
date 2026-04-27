@@ -48,25 +48,21 @@ archetype_chunk_create :: proc(
 
 	col_idx := 0
 	for component_id, _ in component_set.components {
-		component_size := get_component_size(world, component_id)
+		comp_size := get_component_size(world, component_id)
 
-		if component_size > 0 {
+		if comp_size > 0 {
 			column := &chunk.columns[col_idx]
-
-			err := init_column(
-				column,
-				component_id,
-				component_size,
-				chunk.capacity,
-				chunk_allocator,
-			)
+			err := init_column(column, component_id, comp_size, chunk.capacity, chunk_allocator)
 
 			if err != .None {
 				fmt.panicf(
-					"Failed to allocate memory for chunk column %d of archetype %s: %w",
+					"Failed to allocate memory for chunk column %d ({}) of archetype {}: {} (used: {}, reserved: {})",
 					col_idx,
+					get_component_type(world, component_id).type,
 					archetype_to_str(world, archetype),
 					err,
+					chunk_arena.total_used,
+					chunk_arena.total_reserved,
 				)
 			}
 
@@ -204,7 +200,7 @@ init_column :: proc(
 	component_id: EntityId,
 	item_size: int,
 	capacity: int,
-	allocator := context.allocator,
+	allocator: mem.Allocator,
 ) -> mem.Allocator_Error {
 	column.component_id = component_id
 	column.item_size = item_size

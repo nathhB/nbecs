@@ -1,11 +1,8 @@
 package nbecs
 
 import "base:runtime"
-import "core:fmt"
 import "core:log"
 import "core:mem"
-import vmem "core:mem/virtual"
-import "core:strings"
 
 Pair_Array :: [dynamic]EntityId
 
@@ -40,8 +37,6 @@ archetype_init :: proc(
 	archetype.component_set = component_set^
 	archetype.chunks = make([dynamic]^Archetype_Chunk, allocator)
 	archetype.component_column_map = make(map[EntityId]int, allocator)
-	archetype.chunk_capacity =
-		chunk_capacity > 0 ? chunk_capacity : compute_chunk_capacity(world, component_set)
 	archetype.allocator = allocator
 
 	col_idx := 0
@@ -68,6 +63,16 @@ archetype_init :: proc(
 	}
 
 	archetype.column_count = col_idx
+
+	if chunk_capacity > 0 {
+		archetype.chunk_capacity = chunk_capacity
+	} else {
+		archetype.chunk_capacity = compute_chunk_capacity(
+			world,
+			component_set,
+			archetype.column_count,
+		)
+	}
 
 	for i := 0; i < chunk_count; i += 1 {
 		get_or_create_chunk(world, archetype)
@@ -189,15 +194,26 @@ archetype_get_pairs :: proc(archetype: ^Archetype, entity: EntityId) -> []Entity
 	return pairs[:]
 }
 
-compute_chunk_capacity :: proc(world: ^World, component_set: ^Component_Set) -> int {
-	overhead := size_of(Archetype_Chunk) + 64
+compute_chunk_capacity :: proc(
+	world: ^World,
+	component_set: ^Component_Set,
+	column_count: int,
+) -> int {
+	column_count := column_count
+
+	if column_count < 1 do column_count = 1
+
+	column_size :=
+		size_of(Archetype_Column) +
+		mem.align_formula(size_of(Archetype_Column), mem.DEFAULT_ALIGNMENT)
+	column_overhead := column_count * column_size
+	overhead := size_of(Archetype_Chunk) + column_overhead + mem.DEFAULT_ALIGNMENT
 	entity_size := size_of(EntityId)
 
 	for component_id, _ in component_set.components {
 		component_size := get_component_size(world, component_id)
 
 		if component_size > 0 {
-			overhead += size_of(Archetype_Column)
 			entity_size += component_size
 		}
 	}
