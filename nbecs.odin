@@ -974,7 +974,10 @@ has_name :: proc(world: ^World, entity: EntityId, name: string) -> bool {
 
 has_pair :: proc {
 	has_pair_id,
-	has_pair_type,
+	has_pair_type_1,
+	has_pair_type_2,
+	has_pair_name_1,
+	has_pair_name_2,
 }
 
 has_pair_id :: proc(world: ^World, entity: EntityId, first: EntityId, second: EntityId) -> bool {
@@ -983,8 +986,20 @@ has_pair_id :: proc(world: ^World, entity: EntityId, first: EntityId, second: En
 	return has(world, entity, build_pair(first, second))
 }
 
-has_pair_type :: proc(world: ^World, entity: EntityId, first: EntityId, $T: typeid) {
+has_pair_type_1 :: proc(world: ^World, entity: EntityId, $T: typeid, second: EntityId) -> bool {
+	return has_pair(world, entity, get_type_id(world, T), second)
+}
+
+has_pair_type_2 :: proc(world: ^World, entity: EntityId, first: EntityId, $T: typeid) {
 	return has_pair(world, entity, first, get_type_id(world, T))
+}
+
+has_pair_name_1 :: proc(world: ^World, entity: EntityId, first: string, second: EntityId) -> bool {
+	return has_pair(world, entity, find(world, first), second)
+}
+
+has_pair_name_2 :: proc(world: ^World, entity: EntityId, first: EntityId, second: string) -> bool {
+	return has_pair(world, entity, first, find(world, second))
 }
 
 get :: proc(world: ^World, entity: EntityId, $T: typeid) -> T {
