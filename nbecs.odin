@@ -812,12 +812,26 @@ add_by_id :: proc(world: ^World, entity: EntityId, add_entity: EntityId) -> bool
 	return true
 }
 
-add_pair :: proc(world: ^World, entity: EntityId, first: EntityId, second: EntityId) -> bool {
+add_pair :: proc {
+	add_pair_ids,
+	add_pair_name_1,
+	add_pair_name_2,
+}
+
+add_pair_ids :: proc(world: ^World, entity: EntityId, first: EntityId, second: EntityId) -> bool {
 	ensure(is_valid(world, entity))
 
 	pair := build_pair(first, second)
 
 	return add(world, entity, pair)
+}
+
+add_pair_name_1 :: proc(world: ^World, entity: EntityId, first: string, second: EntityId) -> bool {
+	return add_pair_ids(world, entity, find(world, first), second)
+}
+
+add_pair_name_2 :: proc(world: ^World, entity: EntityId, first: EntityId, second: string) -> bool {
+	return add_pair_ids(world, entity, first, find(world, second))
 }
 
 remove_pair :: proc {
