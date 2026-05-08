@@ -925,6 +925,7 @@ set_pair_2 :: proc(world: ^World, entity: EntityId, first: EntityId, data: ^$T) 
 remove :: proc {
 	remove_id,
 	remove_type,
+	remove_name,
 }
 
 remove_id :: proc(world: ^World, entity: EntityId, rm_entity: EntityId) -> bool {
@@ -951,11 +952,17 @@ remove_id :: proc(world: ^World, entity: EntityId, rm_entity: EntityId) -> bool 
 	return true
 }
 
-remove_type :: proc(world: ^World, entity: EntityId, rm_component: typeid) -> bool {
-	component_type, exists := world.types_to_components[rm_component]
+remove_type :: proc(world: ^World, entity: EntityId, rm: typeid) -> bool {
+	component_type, exists := world.types_to_components[rm]
 	ensure(exists)
 
 	return remove_id(world, entity, component_type.id)
+}
+
+remove_name :: proc(world: ^World, entity: EntityId, rm_name: string) -> bool {
+	rm := find(world, rm_name)
+
+	return remove_id(world, entity, rm)
 }
 
 has :: proc {
