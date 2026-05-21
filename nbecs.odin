@@ -69,7 +69,6 @@ World :: struct {
 	pipelines:           map[EntityId]Pipeline,
 	config:              World_Config,
 	arena:               vmem.Arena,
-	temp_allocator:      mem.Allocator,
 	allocator:           mem.Allocator,
 	frozen:              bool,
 	snapshot:            bool,
@@ -123,10 +122,6 @@ create :: proc(allocator := context.allocator) -> ^World {
 	world.snapshot = false
 	world.pipelines = make(map[EntityId]Pipeline, allocator)
 	world.queries = make([dynamic]^Query, allocator)
-
-	err := vmem.arena_init_growing(&world.arena)
-	ensure(err == nil)
-	world.temp_allocator = vmem.arena_allocator(&world.arena)
 
 	archetype_graph_init(world, &world.archetypes, allocator)
 
@@ -561,7 +556,7 @@ emit_data :: proc(world: ^World, event: EntityId, entity: EntityId, data: rawptr
 	archetype := entry.chunk.archetype
 
 	watcher_pair := build_pair(world, Watcher, event)
-	it := iter(world, term(world, watcher_pair), allocator = world.temp_allocator)
+	it := iter(world, term(world, watcher_pair), allocator = context.temp_allocator)
 
 	for iter_next_match(&it) {
 		watcher_col := column(&it, 0)
@@ -575,7 +570,7 @@ emit_data :: proc(world: ^World, event: EntityId, entity: EntityId, data: rawptr
 						world,
 						watcher.query.terms,
 						archetype,
-						world.temp_allocator,
+						context.temp_allocator,
 					) or_continue
 					it2 := Query_Iterator {
 						world,
@@ -1162,8 +1157,6 @@ update :: proc(world: ^World, dt: f64, pipeline := Pipeline_Default) {
 		}
 	}
 
-	free_all(world.temp_allocator)
-
 	world.info.entity_count = len(world.entities)
 	world.info.archetype_count = len(world.archetypes.nodes)
 }
@@ -1329,7 +1322,7 @@ new_instance_of :: proc(world: ^World, prefab: EntityId, name := "") -> EntityId
 	archetype_chunk_copy_row(src_chunk, dest_chunk, src_row, dest_row)
 	remove(world, entity, Prefab)
 
-	prefab_children := get_children(world, prefab, allocator = world.temp_allocator)
+	prefab_children := get_children(world, prefab, allocator = context.temp_allocator)
 
 	for prefab_child in prefab_children {
 		child := new_instance_of(world, prefab_child)
@@ -1449,7 +1442,7 @@ on_archetype_deleted :: proc(
 	}
 
 	strategy := get_deletion_strategy(world, deleted_entity)
-	entities := make([]EntityId, archetype.chunk_capacity, world.temp_allocator)
+	entities := make([]EntityId, archetype.chunk_capacity, context.temp_allocator)
 
 	for chunk in archetype.chunks {
 		chunk_count := len(chunk.entities)

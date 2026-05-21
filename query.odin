@@ -119,7 +119,7 @@ query_iter :: proc(query: ^Query) -> Query_Iterator {
 filter_iter :: proc(
 	world: ^World,
 	terms: ..Query_Term,
-	allocator := context.allocator,
+	allocator := context.temp_allocator,
 ) -> Query_Iterator {
 	matches := make([dynamic]Query_Match, allocator)
 
@@ -391,7 +391,7 @@ evaluate_terms :: proc(
 	world: ^World,
 	terms: []Query_Term,
 	matches: ^[dynamic]Query_Match,
-	allocator := context.allocator,
+	allocator: mem.Allocator,
 ) {
 	match_map := make(map[u64]bool, allocator)
 
