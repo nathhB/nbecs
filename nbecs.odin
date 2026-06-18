@@ -25,6 +25,8 @@ DeleteStrategy_Delete: EntityId = 7
 DeleteStrategy_Remove: EntityId = 8
 Prefab: EntityId = 9
 Event_Deleted: EntityId = 10
+System_Id: EntityId = 11
+Watcher_Id: EntityId = 12
 
 Component_Type :: struct {
 	type: typeid,
@@ -37,11 +39,6 @@ Entity_Entry :: struct {
 	name:  string,
 	row:   int,
 	chunk: ^Archetype_Chunk,
-}
-
-EntityId_Flags :: enum u8 {
-	Reserved = 1, // indicate that the ID is reserved by the library
-	Entity   = 2, // indicate that the ID is an entity (created via new)
 }
 
 Archetype_Map :: #type map[u64]^Archetype
@@ -134,8 +131,8 @@ create :: proc(allocator := context.allocator) -> ^World {
 	new_with_id(world, Prefab, "Prefab")
 	new_with_id(world, Event_Deleted, "Event_Deleted")
 
-	declare(world, System, "System")
-	declare(world, Watcher, "Watcher")
+	declare_with_id(world, System_Id, System, "System")
+	declare_with_id(world, Watcher_Id, Watcher, "Watcher")
 
 	new_with_id(world, Pipeline_Default, "Pipeline_Default")
 	pipeline_with_id(world, Pipeline_Default)
@@ -208,8 +205,6 @@ pipeline :: proc(world: ^World, name: string) -> EntityId {
 
 new :: proc(world: ^World, name: string = "", flags: u8 = 0) -> EntityId {
 	ensure(world.next_entity_id <= world.config.id_range[1])
-	flags := flags
-	flags |= u8(EntityId_Flags.Entity)
 	entity := build_entity_id(world.next_entity_id, 0, flags)
 
 	new_with_id(world, entity, name)
@@ -255,7 +250,9 @@ new_with_id :: proc(world: ^World, entity: EntityId, name: string = "") {
 		panic("Attempted to modify a frozen world")
 	}
 
-	ensure(entity not_in world.entities)
+	if entity in world.entities {
+		fmt.panicf("entity {} (info: {}) already exists", entity_to_str(world, entity))
+	}
 
 	root := world.archetypes.root
 	chunk, row := archetype_add_entity(world, &root.archetype, entity)

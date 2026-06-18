@@ -376,7 +376,7 @@ archetype_chunk_memory_tests :: proc(t: ^testing.T) {
 	chunk1 := arch.chunks[0]
 
 	// testing.expect(t, chunk1.arena.total_used < ecs.Archetype_ChunkSize_Bytes)
-	testing.expect_value(t, chunk1.capacity, ecs.compute_chunk_capacity(world, &set))
+	testing.expect_value(t, chunk1.capacity, ecs.compute_chunk_capacity(world, &set, arch.column_count))
 
 	for i := 0; i < chunk1.capacity; i += 1 {
 		ecs.archetype_add_entity(world, &arch, u64(i + 1))

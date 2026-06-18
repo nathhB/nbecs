@@ -43,7 +43,7 @@ id_flags_tests :: proc(t: ^testing.T) {
 	testing.expect_value(t, ecs.get_entity_id(e2), expected_e2)
 	testing.expect_value(t, ecs.get_entity_id(e3), expected_e3)
 
-	testing.expect_value(t, ecs.get_entity_flags(e1), 0x01 | u8(ecs.EntityId_Flags.Entity))
-	testing.expect_value(t, ecs.get_entity_flags(e2), 0x11 | u8(ecs.EntityId_Flags.Entity))
-	testing.expect_value(t, ecs.get_entity_flags(e3), 0xFF | u8(ecs.EntityId_Flags.Entity))
+	testing.expect_value(t, ecs.get_entity_flags(e1), 0x01)
+	testing.expect_value(t, ecs.get_entity_flags(e2), 0x11)
+	testing.expect_value(t, ecs.get_entity_flags(e3), 0xFF)
 }
