@@ -142,7 +142,7 @@ create :: proc(allocator := context.allocator) -> ^World {
 
 	ensure(world.next_entity_id <= ReservedIDs + 1)
 	world.config.default_delete_strategy = DeleteStrategy_Remove
-	set_id_range_bounds(world, ReservedIDs + 1, EntityId_Raw_Max)
+	set_id_range(world, [2]EntityId{ReservedIDs + 1, EntityId_Raw_Max})
 
 	return world
 }
@@ -1244,19 +1244,21 @@ find :: proc(world: ^World, name: string) -> EntityId {
 	return entity
 }
 
-set_id_range :: proc(world: ^World, range: [2]EntityId) {
-	set_id_range_bounds(world, range[0], range[1])
-}
-
-set_id_range_bounds :: proc(world: ^World, r_min: EntityId, r_max: EntityId) {
+set_id_range :: proc(world: ^World, range: [2]EntityId, set_next_id := true) {
 	if world.frozen {
 		panic("Attempted to modify a frozen world")
 	}
 
+	r_min := range[0]
+	r_max := range[1]
+
 	ensure(r_min > ReservedIDs && r_max <= EntityId_Raw_Max)
 
 	world.config.id_range = [2]EntityId{r_min, r_max}
-	world.next_entity_id = world.config.id_range[0]
+
+	if set_next_id {
+		world.next_entity_id = world.config.id_range[0]
+	}
 }
 
 set_default_delete_strategy :: proc(world: ^World, strategy: EntityId) {
