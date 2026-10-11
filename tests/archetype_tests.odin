@@ -9,15 +9,15 @@ archetype_creation_tests :: proc(t: ^testing.T) {
 	world := ecs.create()
 	defer ecs.destroy(world)
 
-	foo: ecs.EntityId = ecs.declare(world, Foo)
-	bar: ecs.EntityId = ecs.declare(world, Bar)
-	plop: ecs.EntityId = ecs.new(world)
-	plap: ecs.EntityId = ecs.new(world)
+	foo: ecs.Entity = ecs.declare(world, Foo)
+	bar: ecs.Entity = ecs.declare(world, Bar)
+	plop: ecs.Entity = ecs.new(world)
+	plap: ecs.Entity = ecs.new(world)
 
-	set1 := ecs.set_build([]ecs.EntityId{foo, bar})
-	set2 := ecs.set_build([]ecs.EntityId{bar, foo})
+	set1 := ecs.set_build([]ecs.Entity{foo, bar})
+	set2 := ecs.set_build([]ecs.Entity{bar, foo})
 	defer ecs.set_destroy(&set2)
-	set3 := ecs.set_build([]ecs.EntityId{bar, foo, plop})
+	set3 := ecs.set_build([]ecs.Entity{bar, foo, plop})
 
 	arch1 := ecs.Archetype{}
 	arch2 := ecs.Archetype{}
@@ -59,13 +59,13 @@ archetype_data_tests :: proc(t: ^testing.T) {
 	world := ecs.create()
 	defer ecs.destroy(world)
 
-	foo: ecs.EntityId = ecs.declare(world, Foo)
-	foo2: ecs.EntityId = ecs.declare(world, Foo2)
-	bar: ecs.EntityId = ecs.declare(world, Bar)
-	plop: ecs.EntityId = ecs.new(world)
+	foo: ecs.Entity = ecs.declare(world, Foo)
+	foo2: ecs.Entity = ecs.declare(world, Foo2)
+	bar: ecs.Entity = ecs.declare(world, Bar)
+	plop: ecs.Entity = ecs.new(world)
 
-	set1 := ecs.set_build([]ecs.EntityId{foo, bar})
-	set2 := ecs.set_build([]ecs.EntityId{bar, foo2, plop})
+	set1 := ecs.set_build([]ecs.Entity{foo, bar})
+	set2 := ecs.set_build([]ecs.Entity{bar, foo2, plop})
 
 	arch1 := ecs.Archetype{}
 	arch2 := ecs.Archetype{}
@@ -124,11 +124,11 @@ archetype_entity_deletion_tests :: proc(t: ^testing.T) {
 	world := ecs.create()
 	defer ecs.destroy(world)
 
-	foo: ecs.EntityId = ecs.declare(world, Foo)
-	foo2: ecs.EntityId = ecs.declare(world, Foo2)
-	bar: ecs.EntityId = ecs.declare(world, Bar)
+	foo: ecs.Entity = ecs.declare(world, Foo)
+	foo2: ecs.Entity = ecs.declare(world, Foo2)
+	bar: ecs.Entity = ecs.declare(world, Bar)
 
-	set1 := ecs.set_build([]ecs.EntityId{foo, bar, foo2})
+	set1 := ecs.set_build([]ecs.Entity{foo, bar, foo2})
 
 	arch1 := ecs.Archetype{}
 
@@ -140,23 +140,24 @@ archetype_entity_deletion_tests :: proc(t: ^testing.T) {
 	ecs.archetype_add_entity(world, &arch1, 3)
 	ecs.archetype_add_entity(world, &arch1, 4)
 
-	testing.expect_value(t, len(chunk.entities), 4)
+	testing.expect_value(t, chunk.count, 4)
+	testing.expect_value(t, chunk.entities[chunk.count - 1], 4)
 
 	moved_entity := ecs.archetype_chunk_delete_entity(chunk, 0)
 
-	testing.expect_value(t, len(chunk.entities), 3)
+	testing.expect_value(t, chunk.count, 3)
 	testing.expect_value(t, moved_entity, 4)
 	testing.expect_value(t, chunk.entities[0], 4)
 
 	moved_entity = ecs.archetype_chunk_delete_entity(chunk, 0)
-	testing.expect_value(t, len(chunk.entities), 2)
+	testing.expect_value(t, chunk.count, 2)
 	testing.expect_value(t, moved_entity, 3)
 	testing.expect_value(t, chunk.entities[0], 3)
 	testing.expect_value(t, chunk.entities[1], 2)
 
 	moved_entity = ecs.archetype_chunk_delete_entity(chunk, 1)
 	testing.expect_value(t, moved_entity, 0) // last row so not moving any entity
-	testing.expect_value(t, len(chunk.entities), 1)
+	testing.expect_value(t, chunk.count, 1)
 	testing.expect_value(t, chunk.entities[0], 3)
 }
 
@@ -165,12 +166,12 @@ archetype_copy_row_tests :: proc(t: ^testing.T) {
 	world := ecs.create()
 	defer ecs.destroy(world)
 
-	foo: ecs.EntityId = ecs.declare(world, Foo)
-	foo2: ecs.EntityId = ecs.declare(world, Foo2)
-	bar: ecs.EntityId = ecs.declare(world, Bar)
+	foo: ecs.Entity = ecs.declare(world, Foo)
+	foo2: ecs.Entity = ecs.declare(world, Foo2)
+	bar: ecs.Entity = ecs.declare(world, Bar)
 
-	set1 := ecs.set_build([]ecs.EntityId{foo, bar})
-	set2 := ecs.set_build([]ecs.EntityId{foo, bar, foo2})
+	set1 := ecs.set_build([]ecs.Entity{foo, bar})
+	set2 := ecs.set_build([]ecs.Entity{foo, bar, foo2})
 
 	arch1 := ecs.Archetype{}
 	arch2 := ecs.Archetype{}
@@ -226,16 +227,16 @@ archetype_pairs_tests :: proc(t: ^testing.T) {
 	world := ecs.create()
 	defer ecs.destroy(world)
 
-	eats: ecs.EntityId = ecs.new(world, "Eats")
-	likes: ecs.EntityId = ecs.new(world, "Likes")
-	apple: ecs.EntityId = ecs.new(world, "Apple")
-	pear: ecs.EntityId = ecs.new(world, "Pear")
+	eats: ecs.Entity = ecs.new(world, "Eats")
+	likes: ecs.Entity = ecs.new(world, "Likes")
+	apple: ecs.Entity = ecs.new(world, "Apple")
+	pear: ecs.Entity = ecs.new(world, "Pear")
 	pair1 := ecs.build_pair(eats, apple)
 	pair2 := ecs.build_pair(eats, pear)
 	pair3 := ecs.build_pair(likes, apple)
 	pair4 := ecs.build_pair(likes, pear)
 
-	set := ecs.set_build([]ecs.EntityId{pair1, pair2, pair3, pair4})
+	set := ecs.set_build([]ecs.Entity{pair1, pair2, pair3, pair4})
 	arch := ecs.Archetype{}
 	ecs.archetype_init(world, &arch, &set)
 	defer ecs.archetype_deinit(&arch)
@@ -252,10 +253,10 @@ archetype_unique_pair_tests :: proc(t: ^testing.T) {
 	world := ecs.create()
 	defer ecs.destroy(world)
 
-	eats: ecs.EntityId = ecs.new(world, "Eats")
-	likes: ecs.EntityId = ecs.new(world, "Likes")
-	apple: ecs.EntityId = ecs.new(world, "Apple")
-	pear: ecs.EntityId = ecs.new(world, "Pear")
+	eats: ecs.Entity = ecs.new(world, "Eats")
+	likes: ecs.Entity = ecs.new(world, "Likes")
+	apple: ecs.Entity = ecs.new(world, "Apple")
+	pear: ecs.Entity = ecs.new(world, "Pear")
 	pair1 := ecs.build_pair(eats, apple)
 	pair2 := ecs.build_pair(eats, pear)
 	pair3 := ecs.build_pair(likes, apple)
@@ -264,7 +265,7 @@ archetype_unique_pair_tests :: proc(t: ^testing.T) {
 	ecs.add(world, eats, ecs.UniquePair)
 	ecs.add(world, likes, ecs.UniquePair)
 
-	set := ecs.set_build([]ecs.EntityId{pair1, pair4})
+	set := ecs.set_build([]ecs.Entity{pair1, pair4})
 	arch := ecs.Archetype{}
 	ecs.archetype_init(world, &arch, &set)
 	defer ecs.archetype_deinit(&arch)
@@ -272,7 +273,7 @@ archetype_unique_pair_tests :: proc(t: ^testing.T) {
 	testing.expect_value(t, ecs.archetype_get_pair(&arch, eats), pair1)
 	testing.expect_value(t, ecs.archetype_get_pair(&arch, likes), pair4)
 
-	set2 := ecs.set_build([]ecs.EntityId{pair2, pair3})
+	set2 := ecs.set_build([]ecs.Entity{pair2, pair3})
 	arch2 := ecs.Archetype{}
 	ecs.archetype_init(world, &arch2, &set2)
 	defer ecs.archetype_deinit(&arch2)
@@ -286,10 +287,10 @@ archetype_chunks_tests :: proc(t: ^testing.T) {
 	world := ecs.create()
 	defer ecs.destroy(world)
 
-	foo: ecs.EntityId = ecs.declare(world, Foo)
-	bar: ecs.EntityId = ecs.declare(world, Bar)
+	foo: ecs.Entity = ecs.declare(world, Foo)
+	bar: ecs.Entity = ecs.declare(world, Bar)
 
-	set := ecs.set_build([]ecs.EntityId{foo, bar})
+	set := ecs.set_build([]ecs.Entity{foo, bar})
 	arch := ecs.Archetype{}
 
 	ecs.archetype_init(world, &arch, &set, 3)
@@ -363,10 +364,10 @@ archetype_chunk_memory_tests :: proc(t: ^testing.T) {
 	world := ecs.create()
 	defer ecs.destroy(world)
 
-	foo: ecs.EntityId = ecs.declare(world, Foo)
-	bar: ecs.EntityId = ecs.declare(world, Bar)
+	foo: ecs.Entity = ecs.declare(world, Foo)
+	bar: ecs.Entity = ecs.declare(world, Bar)
 
-	set := ecs.set_build([]ecs.EntityId{foo, bar})
+	set := ecs.set_build([]ecs.Entity{foo, bar})
 
 	arch := ecs.Archetype{}
 
@@ -376,7 +377,11 @@ archetype_chunk_memory_tests :: proc(t: ^testing.T) {
 	chunk1 := arch.chunks[0]
 
 	// testing.expect(t, chunk1.arena.total_used < ecs.Archetype_ChunkSize_Bytes)
-	testing.expect_value(t, chunk1.capacity, ecs.compute_chunk_capacity(world, &set, arch.column_count))
+	testing.expect_value(
+		t,
+		chunk1.capacity,
+		ecs.compute_chunk_capacity(world, &set, arch.column_count),
+	)
 
 	for i := 0; i < chunk1.capacity; i += 1 {
 		ecs.archetype_add_entity(world, &arch, u64(i + 1))
@@ -385,3 +390,4 @@ archetype_chunk_memory_tests :: proc(t: ^testing.T) {
 	testing.expect_value(t, len(chunk1.entities), chunk1.capacity)
 	testing.expect_value(t, len(arch.chunks), 1)
 }
+

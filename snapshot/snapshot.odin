@@ -71,7 +71,7 @@ copy_types :: proc(
 	node := node
 
 	if node == nil {
-		hash := ecs.set_build_hash([]ecs.EntityId{ecs.TypeTrait})
+		hash := ecs.set_build_hash([]ecs.Entity{ecs.TypeTrait})
 		ensure(hash in src_world.archetypes.nodes)
 		node = src_world.archetypes.nodes[hash]
 	}
@@ -92,7 +92,7 @@ copy_types :: proc(
 	it := ecs.archetype_iter(src_world, src_archetype, allocator)
 	chunk := it.current_chunk
 
-	for row := 0; row < len(chunk.entities); row += 1 {
+	for row := 0; row < chunk.count; row += 1 {
 		entity := chunk.entities[row]
 		src_world_type := src_world.ids_to_components[entity]
 
@@ -210,7 +210,7 @@ copy_archetype :: proc(
 		dest_chunk := dest.chunks[i]
 
 		copy_chunk(src_chunk, dest_chunk)
-		ensure(len(src_chunk.entities) == len(dest_chunk.entities))
+		ensure(src_chunk.count == dest_chunk.count)
 
 		for entity in dest_chunk.entities {
 			src_entry, exists := src_world.entities[entity]
@@ -233,7 +233,7 @@ copy_chunk :: proc(src: ^ecs.Archetype_Chunk, dest: ^ecs.Archetype_Chunk) {
 		dest.column_count,
 	)
 
-	resize(&dest.entities, len(src.entities))
+	// resize(&dest.entities, len(src.entities))
 	copy(dest.entities[:], src.entities[:])
 
 	for i := 0; i < src.column_count; i += 1 {
@@ -261,3 +261,4 @@ skip_archetype :: proc(world: ^ecs.World, arch: ^ecs.Archetype) -> bool {
 
 	return false
 }
+

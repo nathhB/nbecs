@@ -4,7 +4,7 @@ import "base:runtime"
 import "core:log"
 import "core:mem"
 
-Pair_Array :: [dynamic]EntityId
+Pair_Array :: [dynamic]Entity
 
 Archetype :: struct {
 	is_root:              bool,
@@ -12,8 +12,8 @@ Archetype :: struct {
 	node:                 ^ArchetypeNode,
 	component_set:        Component_Set,
 	chunks:               [dynamic]^Archetype_Chunk,
-	component_column_map: map[EntityId]int,
-	pairs:                map[EntityId]Pair_Array,
+	component_column_map: map[Entity]int,
+	pairs:                map[Entity]Pair_Array,
 	active_chunk:         ^Archetype_Chunk,
 	chunk_capacity:       int,
 	chunk_free_list:      [dynamic]^Archetype_Chunk,
@@ -36,7 +36,7 @@ archetype_init :: proc(
 	archetype.is_root = is_root
 	archetype.component_set = component_set^
 	archetype.chunks = make([dynamic]^Archetype_Chunk, allocator)
-	archetype.component_column_map = make(map[EntityId]int, allocator)
+	archetype.component_column_map = make(map[Entity]int, allocator)
 	archetype.allocator = allocator
 
 	col_idx := 0
@@ -108,22 +108,21 @@ archetype_deinit :: proc(archetype: ^Archetype) {
 	set_destroy(&archetype.component_set)
 }
 
-archetype_has :: proc(archetype: ^Archetype, component_id: EntityId) -> bool {
+archetype_has :: proc(archetype: ^Archetype, component_id: Entity) -> bool {
 	return !archetype.is_root && set_has(&archetype.component_set, component_id)
 }
 
 archetype_add_entity :: proc(
 	world: ^World,
 	archetype: ^Archetype,
-	entity: EntityId,
+	entity: Entity,
 ) -> (
 	chunk: ^Archetype_Chunk,
 	row: int,
 ) {
 	chunk = archetype.active_chunk
-	chunk_count := len(chunk.entities)
 
-	if chunk_count == archetype.chunk_capacity {
+	if chunk.count == archetype.chunk_capacity {
 		chunk = get_or_create_chunk(world, archetype)
 		archetype.active_chunk = chunk
 	}
@@ -137,10 +136,10 @@ archetype_delete_entity :: proc(
 	archetype: ^Archetype,
 	chunk: ^Archetype_Chunk,
 	row: int,
-) -> EntityId {
+) -> Entity {
 	moved_entity := archetype_chunk_delete_entity(chunk, row)
 
-	if len(chunk.entities) == 0 && len(archetype.chunks) > 1 {
+	if chunk.count == 0 && len(archetype.chunks) > 1 {
 		last_chunk := archetype.chunks[len(archetype.chunks) - 1]
 		last_chunk.index = chunk.index
 
@@ -162,7 +161,7 @@ archetype_delete_entity :: proc(
 	return moved_entity
 }
 
-archetype_get_pair :: proc(archetype: ^Archetype, entity: EntityId) -> EntityId {
+archetype_get_pair :: proc(archetype: ^Archetype, entity: Entity) -> Entity {
 	assert(!is_pair(entity))
 
 	if archetype.pairs == nil {
@@ -178,7 +177,7 @@ archetype_get_pair :: proc(archetype: ^Archetype, entity: EntityId) -> EntityId 
 	return pairs[0]
 }
 
-archetype_get_pairs :: proc(archetype: ^Archetype, entity: EntityId) -> []EntityId {
+archetype_get_pairs :: proc(archetype: ^Archetype, entity: Entity) -> []Entity {
 	assert(!is_pair(entity))
 
 	if archetype.pairs == nil {
@@ -208,7 +207,7 @@ compute_chunk_capacity :: proc(
 		mem.align_formula(size_of(Archetype_Column), mem.DEFAULT_ALIGNMENT)
 	column_overhead := column_count * column_size
 	overhead := size_of(Archetype_Chunk) + column_overhead + mem.DEFAULT_ALIGNMENT
-	entity_size := size_of(EntityId)
+	entity_size := size_of(Entity)
 
 	for component_id, _ in component_set.components {
 		component_size := get_component_size(world, component_id)
@@ -250,11 +249,11 @@ get_or_create_chunk :: proc(world: ^World, archetype: ^Archetype) -> ^Archetype_
 }
 
 @(private = "file")
-add_pair :: proc(world: ^World, archetype: ^Archetype, pair: EntityId) {
+add_pair :: proc(world: ^World, archetype: ^Archetype, pair: Entity) {
 	assert(is_pair(pair))
 
 	if archetype.pairs == nil {
-		archetype.pairs = make(map[EntityId]Pair_Array, archetype.allocator)
+		archetype.pairs = make(map[Entity]Pair_Array, archetype.allocator)
 	}
 
 	first, second := pair_split(pair)
@@ -271,3 +270,4 @@ add_pair :: proc(world: ^World, archetype: ^Archetype, pair: EntityId) {
 
 	append(&archetype.pairs[first], pair)
 }
+

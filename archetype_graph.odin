@@ -7,8 +7,8 @@ import "core:strings"
 
 ArchetypeNode :: struct {
 	archetype: Archetype,
-	add_nodes: map[EntityId]u64,
-	rm_nodes:  map[EntityId]u64,
+	add_nodes: map[Entity]u64,
+	rm_nodes:  map[Entity]u64,
 }
 
 ArchetypeGraph :: struct {
@@ -27,7 +27,7 @@ archetype_graph_init :: proc(
 	graph.allocator = allocator
 
 	if create_root {
-		root_component_set := set_build([]EntityId{}, allocator)
+		root_component_set := set_build([]Entity{}, allocator)
 		create_new_archetype(world, graph, &root_component_set, is_root = true)
 	}
 }
@@ -44,7 +44,7 @@ archetype_graph_add :: proc(
 	world: ^World,
 	graph: ^ArchetypeGraph,
 	src_node: ^ArchetypeNode,
-	component_id: EntityId,
+	component_id: Entity,
 ) -> ^ArchetypeNode {
 	target_node_hash, exists := src_node.add_nodes[component_id]
 
@@ -75,7 +75,7 @@ archetype_graph_remove :: proc(
 	world: ^World,
 	graph: ^ArchetypeGraph,
 	src_node: ^ArchetypeNode,
-	component_id: EntityId,
+	component_id: Entity,
 ) -> ^ArchetypeNode {
 	target_node_hash, exists := src_node.rm_nodes[component_id]
 
@@ -106,8 +106,8 @@ archetype_graph_replace :: proc(
 	world: ^World,
 	graph: ^ArchetypeGraph,
 	src_node: ^ArchetypeNode,
-	rm_entity: EntityId,
-	add_entity: EntityId,
+	rm_entity: Entity,
+	add_entity: Entity,
 ) -> ^ArchetypeNode {
 	assert(archetype_has(&src_node.archetype, rm_entity))
 	hash := set_build_hash_replace(&src_node.archetype.component_set, rm_entity, add_entity)
@@ -149,7 +149,7 @@ archetype_graph_cleanup :: proc(
 	world: ^World,
 	graph: ^ArchetypeGraph,
 	hash: u64,
-	deleted_entity: EntityId,
+	deleted_entity: Entity,
 	relationship: bool,
 ) {
 	node, exists := graph.nodes[hash]
@@ -180,8 +180,8 @@ create_new_node :: proc(graph: ^ArchetypeGraph, hash: u64, is_root: bool) -> ^Ar
 
 	node := builtin.new(ArchetypeNode, graph.allocator)
 
-	node.add_nodes = make(map[EntityId]u64, graph.allocator)
-	node.rm_nodes = make(map[EntityId]u64, graph.allocator)
+	node.add_nodes = make(map[Entity]u64, graph.allocator)
+	node.rm_nodes = make(map[Entity]u64, graph.allocator)
 
 	graph.nodes[hash] = node
 
@@ -233,3 +233,4 @@ destroy_node :: proc(graph: ^ArchetypeGraph, node: ^ArchetypeNode) {
 	delete_map(node.rm_nodes)
 	free(node, graph.allocator)
 }
+

@@ -95,7 +95,7 @@ update_transforms :: proc(
 		parent_rot = parent_transform.world_rot
 	}
 
-	for row := 0; row < len(chunk.entities); row += 1 {
+	for row := 0; row < chunk.count; row += 1 {
 		transform := ecs.query_entity_data_mut(transform_col, row, Transform)
 		world_pos := mul_v2_with_m3(transform.local_pos, parent_matrix)
 
@@ -205,3 +205,4 @@ mul_v2_with_m3 :: proc(v: Vec2, m: Mat3x3) -> Vec2 {
 
 	return Vec2{v3.x, v3.y}
 }
+

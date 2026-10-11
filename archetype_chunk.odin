@@ -9,18 +9,19 @@ import vmem "core:mem/virtual"
 Archetype_ChunkSize_Bytes :: 32_000
 
 Archetype_Column :: struct {
-	component_id: EntityId,
+	component_id: Entity,
 	item_size:    int,
 	rows:         rawptr,
 }
 
 Archetype_Chunk :: struct {
 	capacity:     int,
+	count:        int,
 	column_count: int,
 	index:        int,
 	archetype:    ^Archetype,
 	columns:      []Archetype_Column,
-	entities:     [dynamic]EntityId,
+	entities:     []Entity,
 	buffer:       []u8,
 }
 
@@ -38,7 +39,7 @@ archetype_chunk_create :: proc(
 	chunk_allocator := vmem.arena_allocator(&chunk_arena)
 	chunk := builtin.new(Archetype_Chunk, chunk_allocator)
 
-	chunk.entities, err = make([dynamic]EntityId, 0, capacity, chunk_allocator)
+	chunk.entities, err = make([]Entity, capacity, chunk_allocator)
 	ensure(err == .None)
 
 	chunk.capacity = capacity
@@ -78,44 +79,45 @@ archetype_chunk_create :: proc(
 	return chunk
 }
 
-archetype_chunk_add_entity :: proc(chunk: ^Archetype_Chunk, entity: EntityId) -> int {
-	count := len(chunk.entities)
-	assert(count + 1 <= chunk.capacity)
-	append(&chunk.entities, entity)
+archetype_chunk_add_entity :: proc(chunk: ^Archetype_Chunk, entity: Entity) -> int {
+	count := chunk.count
+	assert(count < chunk.capacity)
+	chunk.entities[chunk.count] = entity
+	chunk.count += 1
 
 	return count
 }
 
-archetype_chunk_delete_entity :: proc(chunk: ^Archetype_Chunk, row: int) -> EntityId {
-	moved_entity: EntityId = 0
+archetype_chunk_delete_entity :: proc(chunk: ^Archetype_Chunk, row: int) -> Entity {
+	moved_entity: Entity = 0
 
 	// if the deleted entity is not the last one, we perform an "unordered" remove
 	// effectively swaping the deleted row with the last one
-	// we need to return the entity that was moved so its row indew can be updated
+	// we need to return the entity that was moved so its row index can be updated
 
-	row_count := len(chunk.entities)
-	delete_last := row == row_count - 1
+	delete_last := row == chunk.count - 1
 
 	if !delete_last {
 		for col_idx := 0; col_idx < chunk.column_count; col_idx += 1 {
 			col := &chunk.columns[col_idx]
-			last_row := archetype_chunk_get_data(col, row_count - 1)
+			last_row := archetype_chunk_get_data(col, chunk.count - 1)
 			dest_row := archetype_chunk_get_data(col, row)
 
 			mem.copy(dest_row, last_row, col.item_size)
 		}
 
-		moved_entity = chunk.entities[row_count - 1]
+		moved_entity = chunk.entities[chunk.count - 1]
+		chunk.entities[row] = moved_entity
 	}
 
-	unordered_remove(&chunk.entities, row)
-	assert(len(chunk.entities) == row_count - 1)
+	chunk.entities[chunk.count - 1] = 0
+	chunk.count -= 1
 
 	return moved_entity
 }
 
 archetype_chunk_set_data :: proc(chunk: ^Archetype_Chunk, col_idx: int, row: int, data: rawptr) {
-	assert(row < len(chunk.entities))
+	assert(row < chunk.count)
 	assert(col_idx < chunk.column_count)
 
 	col := &chunk.columns[col_idx]
@@ -149,7 +151,7 @@ archetype_chunk_get_data_col_idx :: #force_inline proc(
 	return archetype_chunk_get_data_col(col, row)
 }
 
-archetype_chunk_get_column_index :: proc(chunk: ^Archetype_Chunk, component_id: EntityId) -> int {
+archetype_chunk_get_column_index :: proc(chunk: ^Archetype_Chunk, component_id: Entity) -> int {
 	col_index, exists := chunk.archetype.component_column_map[component_id]
 	assert(exists)
 
@@ -162,8 +164,8 @@ archetype_chunk_copy_row :: proc(
 	src_row: int,
 	dest_row: int,
 ) {
-	assert(src_row < len(src_chunk.entities))
-	assert(dest_row < len(dest_chunk.entities))
+	assert(src_row < src_chunk.count)
+	assert(dest_row < dest_chunk.count)
 
 	src_col_count := src_chunk.column_count
 	dest_col_count := dest_chunk.column_count
@@ -197,7 +199,7 @@ archetype_chunk_copy_row :: proc(
 @(private = "file")
 init_column :: proc(
 	column: ^Archetype_Column,
-	component_id: EntityId,
+	component_id: Entity,
 	item_size: int,
 	capacity: int,
 	allocator: mem.Allocator,
@@ -209,3 +211,4 @@ init_column :: proc(
 
 	return .None
 }
+

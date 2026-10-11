@@ -7,19 +7,19 @@ import "core:slice"
 Component_Set_Max_Capacity :: 16
 
 Component_Set :: struct {
-	components: map[EntityId]struct{},
+	components: map[Entity]struct{},
 	hash:       u64,
 }
 
 @(thread_local)
 @(private = "file")
-component_ids: sa.Small_Array(Component_Set_Max_Capacity, EntityId)
+component_ids: sa.Small_Array(Component_Set_Max_Capacity, Entity)
 
-set_build :: proc(component_ids: []EntityId, allocator := context.allocator) -> Component_Set {
+set_build :: proc(component_ids: []Entity, allocator := context.allocator) -> Component_Set {
 	component_count := len(component_ids)
 
 	set := Component_Set{}
-	set.components = make(map[EntityId]struct{}, component_count, allocator)
+	set.components = make(map[Entity]struct{}, component_count, allocator)
 
 	for component_id in component_ids {
 		set.components[component_id] = {}
@@ -36,7 +36,7 @@ set_destroy :: proc(set: ^Component_Set) {
 
 set_add :: proc(
 	set: ^Component_Set,
-	entity: EntityId,
+	entity: Entity,
 	allocator := context.allocator,
 ) -> Component_Set {
 	assert(len(set.components) + 1 <= Component_Set_Max_Capacity)
@@ -54,7 +54,7 @@ set_add :: proc(
 
 set_remove :: proc(
 	set: ^Component_Set,
-	entity: EntityId,
+	entity: Entity,
 	allocator := context.allocator,
 ) -> Component_Set {
 	sa.clear(&component_ids)
@@ -70,8 +70,8 @@ set_remove :: proc(
 
 set_replace :: proc(
 	set: ^Component_Set,
-	rm: EntityId,
-	add: EntityId,
+	rm: Entity,
+	add: Entity,
 	allocator := context.allocator,
 ) -> Component_Set {
 	sa.clear(&component_ids)
@@ -85,7 +85,7 @@ set_replace :: proc(
 
 set_remove_relationship :: proc(
 	set: ^Component_Set,
-	entity: EntityId,
+	entity: Entity,
 	allocator := context.allocator,
 ) -> Component_Set {
 	sa.clear(&component_ids)
@@ -101,11 +101,11 @@ set_remove_relationship :: proc(
 	return set_build(sa.slice(&component_ids), allocator)
 }
 
-set_has :: proc(set: ^Component_Set, component_id: EntityId) -> bool {
+set_has :: proc(set: ^Component_Set, component_id: Entity) -> bool {
 	return component_id in set.components
 }
 
-set_build_hash_add :: proc(set: ^Component_Set, add: EntityId) -> u64 {
+set_build_hash_add :: proc(set: ^Component_Set, add: Entity) -> u64 {
 	assert(len(set.components) + 1 <= Component_Set_Max_Capacity)
 
 	sa.clear(&component_ids)
@@ -119,7 +119,7 @@ set_build_hash_add :: proc(set: ^Component_Set, add: EntityId) -> u64 {
 	return set_build_hash(sa.slice(&component_ids))
 }
 
-set_build_hash_rm :: proc(set: ^Component_Set, rm: EntityId) -> u64 {
+set_build_hash_rm :: proc(set: ^Component_Set, rm: Entity) -> u64 {
 	sa.clear(&component_ids)
 
 	for component_id, _ in set.components {
@@ -131,7 +131,7 @@ set_build_hash_rm :: proc(set: ^Component_Set, rm: EntityId) -> u64 {
 	return set_build_hash(sa.slice(&component_ids))
 }
 
-set_build_hash_replace :: proc(set: ^Component_Set, rm: EntityId, add: EntityId) -> u64 {
+set_build_hash_replace :: proc(set: ^Component_Set, rm: Entity, add: Entity) -> u64 {
 	sa.clear(&component_ids)
 
 	for component_id, _ in set.components {
@@ -141,7 +141,7 @@ set_build_hash_replace :: proc(set: ^Component_Set, rm: EntityId, add: EntityId)
 	return set_build_hash(sa.slice(&component_ids))
 }
 
-set_build_hash :: proc(component_ids: []EntityId) -> u64 {
+set_build_hash :: proc(component_ids: []Entity) -> u64 {
 	slice.sort(component_ids)
 
 	hash := u64(len(component_ids))
@@ -158,8 +158,8 @@ set_build_hash :: proc(component_ids: []EntityId) -> u64 {
 	return hash
 }
 
-set_to_arr :: proc(set: ^Component_Set) -> []EntityId {
-	arr := make([]EntityId, len(set.components))
+set_to_arr :: proc(set: ^Component_Set) -> []Entity {
+	arr := make([]Entity, len(set.components))
 
 	i := 0
 	for component_id, _ in set.components {
@@ -171,3 +171,4 @@ set_to_arr :: proc(set: ^Component_Set) -> []EntityId {
 
 	return arr
 }
+

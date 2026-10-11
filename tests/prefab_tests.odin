@@ -8,10 +8,10 @@ simple_prefab_tests :: proc(t: ^testing.T) {
 	world := ecs.create()
 	defer ecs.destroy(world)
 
-	foo: ecs.EntityId = ecs.declare(world, Foo)
-	bar: ecs.EntityId = ecs.declare(world, Bar)
-	plop: ecs.EntityId = ecs.new(world)
-	plap: ecs.EntityId = ecs.new(world)
+	foo: ecs.Entity = ecs.declare(world, Foo)
+	bar: ecs.Entity = ecs.declare(world, Bar)
+	plop: ecs.Entity = ecs.new(world)
+	plap: ecs.Entity = ecs.new(world)
 	prefab1 := ecs.prefab(world, "Prefab1")
 
 	ecs.set(world, prefab1, &Foo{42})
@@ -51,7 +51,7 @@ simple_prefab_tests :: proc(t: ^testing.T) {
 	// make sure prefab is not match in queries
 	q1 := ecs.query(world, ecs.term(world, Foo), ecs.term(world, Bar))
 
-	expect_query_matched_entities(t, q1, []ecs.EntityId{instance1, instance2})
+	expect_query_matched_entities(t, q1, []ecs.Entity{instance1, instance2})
 }
 
 @(test)
@@ -59,7 +59,7 @@ prefab_with_children_tests :: proc(t: ^testing.T) {
 	world := ecs.create()
 	defer ecs.destroy(world)
 
-	foo: ecs.EntityId = ecs.declare(world, Foo)
+	foo: ecs.Entity = ecs.declare(world, Foo)
 	prefab := ecs.prefab(world, "Prefab1")
 	prefab_child1 := ecs.prefab(world, "Prefab1.Child1")
 	prefab_child2 := ecs.prefab(world, "Prefab1.Child2")
@@ -103,3 +103,4 @@ prefab_with_children_tests :: proc(t: ^testing.T) {
 		testing.expect_value(t, ecs.get(world, instance1_child_children[0], Foo).v, 142)
 	}
 }
+

@@ -93,12 +93,12 @@ pairs_tests :: proc(t: ^testing.T) {
 	testing.expect_value(t, ecs.get_pair(world, e2, Posseses, apple).amount, 200)
 	testing.expect_value(t, ecs.get_pair(world, e2, Posseses, pear).amount, 100)
 
-	arch1 := expect_find_archetype(t, world, []ecs.EntityId{pair1})
-	arch2 := expect_find_archetype(t, world, []ecs.EntityId{pair2})
-	arch3 := expect_find_archetype(t, world, []ecs.EntityId{pair1, pair3})
-	arch4 := expect_find_archetype(t, world, []ecs.EntityId{pair2, pair4})
-	arch5 := expect_find_archetype(t, world, []ecs.EntityId{pair1, pair3, pair4})
-	arch6 := expect_find_archetype(t, world, []ecs.EntityId{pair2, pair4, pair3})
+	arch1 := expect_find_archetype(t, world, []ecs.Entity{pair1})
+	arch2 := expect_find_archetype(t, world, []ecs.Entity{pair2})
+	arch3 := expect_find_archetype(t, world, []ecs.Entity{pair1, pair3})
+	arch4 := expect_find_archetype(t, world, []ecs.Entity{pair2, pair4})
+	arch5 := expect_find_archetype(t, world, []ecs.Entity{pair1, pair3, pair4})
+	arch6 := expect_find_archetype(t, world, []ecs.Entity{pair2, pair4, pair3})
 	a1_chunk := arch1.chunks[0]
 	a2_chunk := arch2.chunks[0]
 	a3_chunk := arch3.chunks[0]
@@ -106,12 +106,12 @@ pairs_tests :: proc(t: ^testing.T) {
 	a5_chunk := arch5.chunks[0]
 	a6_chunk := arch6.chunks[0]
 
-	testing.expect_value(t, len(a1_chunk.entities), 0)
-	testing.expect_value(t, len(a2_chunk.entities), 0)
-	testing.expect_value(t, len(a3_chunk.entities), 0)
-	testing.expect_value(t, len(a4_chunk.entities), 0)
-	testing.expect_value(t, len(a5_chunk.entities), 1)
-	testing.expect_value(t, len(a6_chunk.entities), 1)
+	testing.expect_value(t, a1_chunk.count, 0)
+	testing.expect_value(t, a2_chunk.count, 0)
+	testing.expect_value(t, a3_chunk.count, 0)
+	testing.expect_value(t, a4_chunk.count, 0)
+	testing.expect_value(t, a5_chunk.count, 1)
+	testing.expect_value(t, a6_chunk.count, 1)
 
 	expect_archetype_index(
 		t,
@@ -123,16 +123,16 @@ pairs_tests :: proc(t: ^testing.T) {
 	ecs.add_pair(world, e1, eats, pear)
 	ecs.add_pair(world, e2, eats, apple)
 
-	arch7 := expect_find_archetype(t, world, []ecs.EntityId{pair1, pair2, pair3, pair4})
+	arch7 := expect_find_archetype(t, world, []ecs.Entity{pair1, pair2, pair3, pair4})
 	a7_chunk := arch7.chunks[0]
 
-	testing.expect_value(t, len(a1_chunk.entities), 0)
-	testing.expect_value(t, len(a2_chunk.entities), 0)
-	testing.expect_value(t, len(a3_chunk.entities), 0)
-	testing.expect_value(t, len(a4_chunk.entities), 0)
-	testing.expect_value(t, len(a5_chunk.entities), 0)
-	testing.expect_value(t, len(a6_chunk.entities), 0)
-	testing.expect_value(t, len(a7_chunk.entities), 2)
+	testing.expect_value(t, a1_chunk.count, 0)
+	testing.expect_value(t, a2_chunk.count, 0)
+	testing.expect_value(t, a3_chunk.count, 0)
+	testing.expect_value(t, a4_chunk.count, 0)
+	testing.expect_value(t, a5_chunk.count, 0)
+	testing.expect_value(t, a6_chunk.count, 0)
+	testing.expect_value(t, a7_chunk.count, 2)
 
 	expect_archetype_index(
 		t,
@@ -191,7 +191,7 @@ simple_cleanup_remove_strategy_tests :: proc(t: ^testing.T) {
 	testing.expect(t, !ecs.is_valid(world, e2))
 	testing.expect(t, ecs.is_valid(world, e3))
 
-	arch := expect_find_archetype(t, world, []ecs.EntityId{e3})
+	arch := expect_find_archetype(t, world, []ecs.Entity{e3})
 	expect_entity_archetype(t, world, e1, arch)
 }
 
@@ -237,8 +237,8 @@ pair_cleanup_remove_strategy_tests :: proc(t: ^testing.T) {
 	testing.expect(t, !ecs.has(world, e2, pair3))
 	testing.expect(t, ecs.has(world, e2, pair4))
 
-	arch1 := expect_find_archetype(t, world, []ecs.EntityId{pair2, pair4})
-	arch2 := expect_find_archetype(t, world, []ecs.EntityId{pair2})
+	arch1 := expect_find_archetype(t, world, []ecs.Entity{pair2, pair4})
+	arch2 := expect_find_archetype(t, world, []ecs.Entity{pair2})
 
 	expect_entity_archetype(t, world, e1, arch2)
 	expect_entity_archetype(t, world, e2, arch1)
@@ -260,7 +260,7 @@ pair_cleanup_remove_strategy_tests :: proc(t: ^testing.T) {
 	testing.expect(t, !ecs.has(world, e2, pair3))
 	testing.expect(t, !ecs.has(world, e2, pair4))
 
-	arch3 := expect_find_archetype(t, world, []ecs.EntityId{pair2})
+	arch3 := expect_find_archetype(t, world, []ecs.Entity{pair2})
 	expect_entity_archetype(t, world, e1, arch3)
 	expect_entity_archetype(t, world, e2, arch3)
 }
@@ -296,10 +296,10 @@ cleanup_tests :: proc(t: ^testing.T) {
 
 	testing.expect_value(t, len(world.archetypes.nodes), 7)
 
-	arch1 := expect_find_archetype(t, world, []ecs.EntityId{e2})
-	arch2 := expect_find_archetype(t, world, []ecs.EntityId{e2, e3})
-	arch3 := expect_find_archetype(t, world, []ecs.EntityId{e3})
-	arch4 := expect_find_archetype(t, world, []ecs.EntityId{e5})
+	arch1 := expect_find_archetype(t, world, []ecs.Entity{e2})
+	arch2 := expect_find_archetype(t, world, []ecs.Entity{e2, e3})
+	arch3 := expect_find_archetype(t, world, []ecs.Entity{e3})
+	arch4 := expect_find_archetype(t, world, []ecs.Entity{e5})
 
 	expect_archetype_index(t, world, e2, []^ecs.Archetype{arch1, arch2})
 	expect_archetype_index(t, world, e3, []^ecs.Archetype{arch2, arch3})
@@ -314,8 +314,8 @@ cleanup_tests :: proc(t: ^testing.T) {
 	q := ecs.query(world, ecs.term(world, e2))
 	q2 := ecs.query(world, ecs.term(world, e3))
 
-	expect_query_matched_entities(t, q, []ecs.EntityId{e1, e5})
-	expect_query_matched_entities(t, q2, []ecs.EntityId{e1, e2, e5})
+	expect_query_matched_entities(t, q, []ecs.Entity{e1, e5})
+	expect_query_matched_entities(t, q2, []ecs.Entity{e1, e2, e5})
 
 	log_debug_world(world)
 
@@ -332,9 +332,9 @@ cleanup_tests :: proc(t: ^testing.T) {
 
 	// archetypes are properly cleaned up
 	testing.expect_value(t, len(world.archetypes.nodes), 4)
-	arch1 = expect_find_archetype(t, world, []ecs.EntityId{e3})
+	arch1 = expect_find_archetype(t, world, []ecs.Entity{e3})
 	a1_chunk := arch1.chunks[0]
-	testing.expect_value(t, len(a1_chunk.entities), 0)
+	testing.expect_value(t, a1_chunk.count, 0)
 	expect_archetype_index(t, world, e1, []^ecs.Archetype{})
 	expect_archetype_index(t, world, e2, []^ecs.Archetype{})
 	expect_archetype_index(t, world, e3, []^ecs.Archetype{arch1})
@@ -343,8 +343,8 @@ cleanup_tests :: proc(t: ^testing.T) {
 
 	// queries are properly updated
 
-	expect_query_matched_entities(t, q, []ecs.EntityId{})
-	expect_query_matched_entities(t, q2, []ecs.EntityId{})
+	expect_query_matched_entities(t, q, []ecs.Entity{})
+	expect_query_matched_entities(t, q2, []ecs.Entity{})
 }
 
 @(test)
@@ -372,8 +372,8 @@ cleanup_pairs_tests :: proc(t: ^testing.T) {
 
 	// log_debug_world(world)
 
-	arch1 := expect_find_archetype(t, world, []ecs.EntityId{pair1, pair2})
-	arch2 := expect_find_archetype(t, world, []ecs.EntityId{pair1})
+	arch1 := expect_find_archetype(t, world, []ecs.Entity{pair1, pair2})
+	arch2 := expect_find_archetype(t, world, []ecs.Entity{pair1})
 
 	expect_archetype_index(
 		t,
@@ -392,19 +392,19 @@ cleanup_pairs_tests :: proc(t: ^testing.T) {
 	q := ecs.query(world, ecs.term(world, ecs.build_pair(eats, ecs.Wildcard)))
 
 	expect_query_matched_archetypes(t, q, []^ecs.Archetype{arch1, arch2})
-	expect_query_matched_entities(t, q, []ecs.EntityId{e1, e2})
+	expect_query_matched_entities(t, q, []ecs.Entity{e1, e2})
 
 	ecs.delete(world, pear)
 
 	testing.expect(t, ecs.is_valid(world, e1))
 	testing.expect(t, !ecs.is_valid(world, e2))
 
-	expect_no_archetype(t, world, []ecs.EntityId{pair1, pair2})
-	expect_no_archetype(t, world, []ecs.EntityId{pair2})
+	expect_no_archetype(t, world, []ecs.Entity{pair1, pair2})
+	expect_no_archetype(t, world, []ecs.Entity{pair2})
 
 	// log_debug_world(world)
 
-	arch1 = expect_find_archetype(t, world, []ecs.EntityId{pair1})
+	arch1 = expect_find_archetype(t, world, []ecs.Entity{pair1})
 
 	expect_archetype_index(t, world, ecs.build_pair(eats, ecs.Wildcard), []^ecs.Archetype{arch1})
 	expect_archetype_index(t, world, ecs.build_pair(ecs.Wildcard, apple), []^ecs.Archetype{arch1})
@@ -414,5 +414,6 @@ cleanup_pairs_tests :: proc(t: ^testing.T) {
 	// queries are properly updated
 
 	expect_query_matched_archetypes(t, q, []^ecs.Archetype{arch1})
-	expect_query_matched_entities(t, q, []ecs.EntityId{e1})
+	expect_query_matched_entities(t, q, []ecs.Entity{e1})
 }
+

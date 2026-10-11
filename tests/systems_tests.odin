@@ -156,8 +156,8 @@ system1 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr
 	foo_col := ecs.column(it, 0)
 
 	for chunk in ecs.iter_next_chunk(it) {
-		for row := 0; row < len(chunk.entities); row += 1 {
-			foo := ecs.row_data_mut(chunk, foo_col, row, Foo)
+		for row := 0; row < chunk.count; row += 1 {
+			foo := ecs.get_mut(chunk, foo_col, row, Foo)
 
 			foo.v *= 2
 		}
@@ -171,9 +171,9 @@ system2 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr
 	bar_col := ecs.column(it, 1)
 
 	for chunk in ecs.iter_next_chunk(it) {
-		for row := 0; row < len(chunk.entities); row += 1 {
-			foo := ecs.row_data_mut(chunk, foo_col, row, Foo)
-			bar := ecs.row_data_mut(chunk, bar_col, row, Bar)
+		for row := 0; row < chunk.count; row += 1 {
+			foo := ecs.get_mut(chunk, foo_col, row, Foo)
+			bar := ecs.get_mut(chunk, bar_col, row, Bar)
 
 			foo.v += 50
 			bar.v += 100
@@ -187,8 +187,8 @@ system3 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr
 	foo_col := ecs.column(it, 0)
 
 	for chunk in ecs.iter_next_chunk(it) {
-		for row := 0; row < len(chunk.entities); row += 1 {
-			foo := ecs.row_data_mut(chunk, foo_col, row, Foo)
+		for row := 0; row < chunk.count; row += 1 {
+			foo := ecs.get_mut(chunk, foo_col, row, Foo)
 
 			foo.v += 5
 		}
@@ -201,8 +201,8 @@ system4 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr
 	foo_col := ecs.column(it, 0)
 
 	for chunk in ecs.iter_next_chunk(it) {
-		for row := 0; row < len(chunk.entities); row += 1 {
-			foo := ecs.row_data_mut(chunk, foo_col, row, Foo)
+		for row := 0; row < chunk.count; row += 1 {
+			foo := ecs.get_mut(chunk, foo_col, row, Foo)
 
 			foo.v -= 10
 		}
@@ -224,3 +224,4 @@ system6 :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr
 	system_ctx.value *= 100
 	return true
 }
+

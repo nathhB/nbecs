@@ -125,7 +125,7 @@ parse_pair :: proc(world: ^World, pair_str: string, allocator := context.allocat
 
 	first_name := strings.trim(parts[0], " ")
 	second_name := strings.trim(parts[1], " ")
-	first, second: EntityId
+	first, second: Entity
 	exists: bool
 
 	first = find(world, first_name)
@@ -133,3 +133,4 @@ parse_pair :: proc(world: ^World, pair_str: string, allocator := context.allocat
 
 	return term(world, first, second)
 }
+

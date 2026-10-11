@@ -8,10 +8,10 @@ entity_add_set_tests :: proc(t: ^testing.T) {
 	world := ecs.create()
 	defer ecs.destroy(world)
 
-	foo: ecs.EntityId = ecs.declare(world, Foo)
-	bar: ecs.EntityId = ecs.declare(world, Bar)
-	plop: ecs.EntityId = ecs.new(world)
-	plap: ecs.EntityId = ecs.new(world)
+	foo: ecs.Entity = ecs.declare(world, Foo)
+	bar: ecs.Entity = ecs.declare(world, Bar)
+	plop: ecs.Entity = ecs.new(world)
+	plap: ecs.Entity = ecs.new(world)
 
 	e1 := ecs.new(world)
 	e2 := ecs.new(world)
@@ -78,7 +78,7 @@ entity_delete_tests :: proc(t: ^testing.T) {
 	world := ecs.create()
 	defer ecs.destroy(world)
 
-	foo: ecs.EntityId = ecs.declare(world, Foo)
+	foo: ecs.Entity = ecs.declare(world, Foo)
 	e1 := ecs.new(world)
 
 	ecs.add(world, e1, foo)
@@ -92,10 +92,10 @@ entity_remove_tests :: proc(t: ^testing.T) {
 	world := ecs.create()
 	defer ecs.destroy(world)
 
-	foo: ecs.EntityId = ecs.declare(world, Foo)
-	bar: ecs.EntityId = ecs.declare(world, Bar)
-	plop: ecs.EntityId = ecs.new(world)
-	plap: ecs.EntityId = ecs.new(world)
+	foo: ecs.Entity = ecs.declare(world, Foo)
+	bar: ecs.Entity = ecs.declare(world, Bar)
+	plop: ecs.Entity = ecs.new(world)
+	plap: ecs.Entity = ecs.new(world)
 
 	e1 := ecs.new(world)
 	e2 := ecs.new(world)
@@ -109,19 +109,19 @@ entity_remove_tests :: proc(t: ^testing.T) {
 
 	testing.expect_value(t, len(world.archetypes.nodes), 7)
 
-	arch1 := expect_find_archetype(t, world, []ecs.EntityId{foo, plop})
-	arch2 := expect_find_archetype(t, world, []ecs.EntityId{foo, bar})
-	arch3 := expect_find_archetype(t, world, []ecs.EntityId{foo})
-	arch4 := expect_find_archetype(t, world, []ecs.EntityId{foo, bar, plap})
+	arch1 := expect_find_archetype(t, world, []ecs.Entity{foo, plop})
+	arch2 := expect_find_archetype(t, world, []ecs.Entity{foo, bar})
+	arch3 := expect_find_archetype(t, world, []ecs.Entity{foo})
+	arch4 := expect_find_archetype(t, world, []ecs.Entity{foo, bar, plap})
 	a1_chunk := arch1.chunks[0]
 	a2_chunk := arch2.chunks[0]
 	a3_chunk := arch3.chunks[0]
 	a4_chunk := arch4.chunks[0]
 
-	testing.expect_value(t, len(a1_chunk.entities), 1)
-	testing.expect_value(t, len(a2_chunk.entities), 0)
-	testing.expect_value(t, len(a3_chunk.entities), 0)
-	testing.expect_value(t, len(a4_chunk.entities), 1)
+	testing.expect_value(t, a1_chunk.count, 1)
+	testing.expect_value(t, a2_chunk.count, 0)
+	testing.expect_value(t, a3_chunk.count, 0)
+	testing.expect_value(t, a4_chunk.count, 1)
 
 	testing.expect(t, ecs.remove(world, e2, plap))
 	testing.expect(t, !ecs.remove(world, e2, plap))
@@ -131,47 +131,47 @@ entity_remove_tests :: proc(t: ^testing.T) {
 	testing.expect(t, !ecs.has(world, e2, plop))
 	testing.expect(t, !ecs.has(world, e2, plap))
 
-	testing.expect_value(t, len(a1_chunk.entities), 1)
-	testing.expect_value(t, len(a2_chunk.entities), 1)
-	testing.expect_value(t, len(a3_chunk.entities), 0)
-	testing.expect_value(t, len(a4_chunk.entities), 0)
+	testing.expect_value(t, a1_chunk.count, 1)
+	testing.expect_value(t, a2_chunk.count, 1)
+	testing.expect_value(t, a3_chunk.count, 0)
+	testing.expect_value(t, a4_chunk.count, 0)
 
 	testing.expect(t, ecs.remove(world, e1, foo))
 
 	testing.expect_value(t, len(world.archetypes.nodes), 8)
 
-	arch5 := expect_find_archetype(t, world, []ecs.EntityId{plop})
+	arch5 := expect_find_archetype(t, world, []ecs.Entity{plop})
 	a5_chunk := arch5.chunks[0]
 
-	testing.expect_value(t, len(a1_chunk.entities), 0)
-	testing.expect_value(t, len(a2_chunk.entities), 1)
-	testing.expect_value(t, len(a3_chunk.entities), 0)
-	testing.expect_value(t, len(a4_chunk.entities), 0)
-	testing.expect_value(t, len(a5_chunk.entities), 1)
+	testing.expect_value(t, a1_chunk.count, 0)
+	testing.expect_value(t, a2_chunk.count, 1)
+	testing.expect_value(t, a3_chunk.count, 0)
+	testing.expect_value(t, a4_chunk.count, 0)
+	testing.expect_value(t, a5_chunk.count, 1)
 
 	testing.expect(t, ecs.remove(world, e2, foo))
 	testing.expect(t, ecs.remove(world, e2, bar))
 
 	testing.expect_value(t, len(world.archetypes.nodes), 9)
 
-	arch6 := expect_find_archetype(t, world, []ecs.EntityId{bar})
+	arch6 := expect_find_archetype(t, world, []ecs.Entity{bar})
 	a6_chunk := arch6.chunks[0]
 
-	testing.expect_value(t, len(a1_chunk.entities), 0)
-	testing.expect_value(t, len(a2_chunk.entities), 0)
-	testing.expect_value(t, len(a3_chunk.entities), 0)
-	testing.expect_value(t, len(a4_chunk.entities), 0)
-	testing.expect_value(t, len(a5_chunk.entities), 1)
-	testing.expect_value(t, len(a6_chunk.entities), 0)
+	testing.expect_value(t, a1_chunk.count, 0)
+	testing.expect_value(t, a2_chunk.count, 0)
+	testing.expect_value(t, a3_chunk.count, 0)
+	testing.expect_value(t, a4_chunk.count, 0)
+	testing.expect_value(t, a5_chunk.count, 1)
+	testing.expect_value(t, a6_chunk.count, 0)
 
 	testing.expect(t, ecs.add(world, e2, plop))
 
-	testing.expect_value(t, len(a1_chunk.entities), 0)
-	testing.expect_value(t, len(a2_chunk.entities), 0)
-	testing.expect_value(t, len(a3_chunk.entities), 0)
-	testing.expect_value(t, len(a4_chunk.entities), 0)
-	testing.expect_value(t, len(a5_chunk.entities), 2)
-	testing.expect_value(t, len(a6_chunk.entities), 0)
+	testing.expect_value(t, a1_chunk.count, 0)
+	testing.expect_value(t, a2_chunk.count, 0)
+	testing.expect_value(t, a3_chunk.count, 0)
+	testing.expect_value(t, a4_chunk.count, 0)
+	testing.expect_value(t, a5_chunk.count, 2)
+	testing.expect_value(t, a6_chunk.count, 0)
 }
 
 @(test)
@@ -288,3 +288,4 @@ find_tests :: proc(t: ^testing.T) {
 	testing.expect(t, !exists)
 	testing.expect_value(t, e, 0)
 }
+

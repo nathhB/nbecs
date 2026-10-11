@@ -9,7 +9,7 @@ import "core:testing"
 expect_archetype_columns :: proc(
 	t: ^testing.T,
 	archetype: ^ecs.Archetype,
-	component_ids: []ecs.EntityId,
+	component_ids: []ecs.Entity,
 	loc := #caller_location,
 ) {
 	set := ecs.set_build(component_ids)
@@ -20,7 +20,7 @@ expect_archetype_columns :: proc(
 expect_find_archetype :: proc(
 	t: ^testing.T,
 	world: ^ecs.World,
-	component_ids: []ecs.EntityId,
+	component_ids: []ecs.Entity,
 	loc := #caller_location,
 ) -> ^ecs.Archetype {
 	set := ecs.set_build(component_ids)
@@ -36,7 +36,7 @@ expect_find_archetype :: proc(
 expect_no_archetype :: proc(
 	t: ^testing.T,
 	world: ^ecs.World,
-	component_ids: []ecs.EntityId,
+	component_ids: []ecs.Entity,
 	loc := #caller_location,
 ) {
 	set := ecs.set_build(component_ids)
@@ -50,7 +50,7 @@ expect_no_archetype :: proc(
 expect_archetype_index :: proc(
 	t: ^testing.T,
 	world: ^ecs.World,
-	index_key: ecs.EntityId,
+	index_key: ecs.Entity,
 	expected_archetypes: []^ecs.Archetype,
 	loc := #caller_location,
 ) {
@@ -97,7 +97,7 @@ expect_archetype_index :: proc(
 expect_entity_archetype :: proc(
 	t: ^testing.T,
 	world: ^ecs.World,
-	entity: ecs.EntityId,
+	entity: ecs.Entity,
 	expected_archetype: ^ecs.Archetype,
 	loc := #caller_location,
 ) {
@@ -141,7 +141,7 @@ expect_query_matched_archetypes :: proc(
 expect_query_matched_entities :: proc(
 	t: ^testing.T,
 	query: ^ecs.Query,
-	expected_entities: []ecs.EntityId,
+	expected_entities: []ecs.Entity,
 	loc := #caller_location,
 ) {
 	match_count := 0
@@ -150,7 +150,7 @@ expect_query_matched_entities :: proc(
 
 	for ecs.iter_next_match(&it) {
 		for chunk in ecs.iter_next_chunk(&it) {
-			for row := 0; row < len(chunk.entities); row += 1 {
+			for row := 0; row < chunk.count; row += 1 {
 				entity := chunk.entities[row]
 				match_count += 1
 
@@ -178,16 +178,16 @@ expect_query_matched_entities :: proc(
 expect_query_matched_entities_in_order :: proc(
 	t: ^testing.T,
 	query: ^ecs.Query,
-	expected_entities: []ecs.EntityId,
+	expected_entities: []ecs.Entity,
 	loc := #caller_location,
 ) {
 	it := ecs.query_iter(query)
-	matched_entities := make([dynamic]ecs.EntityId)
+	matched_entities := make([dynamic]ecs.Entity)
 	defer delete(matched_entities)
 
 	for ecs.iter_next_match(&it) {
 		for chunk in ecs.iter_next_chunk(&it) {
-			for row := 0; row < len(chunk.entities); row += 1 {
+			for row := 0; row < chunk.count; row += 1 {
 				entity := chunk.entities[row]
 
 				append(&matched_entities, entity)
@@ -208,7 +208,7 @@ expect_query_matched_entities_in_order :: proc(
 expect_filter_matched_entities :: proc(
 	t: ^testing.T,
 	world: ^ecs.World,
-	expected_entities: []ecs.EntityId,
+	expected_entities: []ecs.Entity,
 	terms: ..ecs.Query_Term,
 	loc := #caller_location,
 ) {
@@ -218,7 +218,7 @@ expect_filter_matched_entities :: proc(
 
 	for ecs.iter_next_match(&it) {
 		for chunk in ecs.iter_next_chunk(&it) {
-			for row := 0; row < len(chunk.entities); row += 1 {
+			for row := 0; row < chunk.count; row += 1 {
 				entity := chunk.entities[row]
 				match_count += 1
 
@@ -257,11 +257,11 @@ expect_archetype_node_add_edge_count :: proc(
 expect_chunk_entities :: proc(
 	t: ^testing.T,
 	chunk: ^ecs.Archetype_Chunk,
-	expected_entities: ..ecs.EntityId,
+	expected_entities: ..ecs.Entity,
 ) {
-	testing.expect_value(t, len(chunk.entities), len(expected_entities))
+	testing.expect_value(t, chunk.count, len(expected_entities))
 
-	for entity, idx in chunk.entities {
+	for entity, idx in chunk.entities[0:chunk.count] {
 		testing.expect_value(t, entity, expected_entities[idx])
 	}
 }
@@ -285,3 +285,4 @@ log_debug_world :: proc(world: ^ecs.World) {
 
 	log.debug(debug_str)
 }
+

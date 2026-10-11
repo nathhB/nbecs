@@ -8,7 +8,7 @@ import "core:slice"
 
 Query_Term :: struct {
 	index:            int,
-	component_id:     EntityId,
+	component_id:     Entity,
 	component_size:   int,
 	is_pair:          bool,
 	is_wildcard_pair: bool,
@@ -25,13 +25,13 @@ Query_Field :: struct {
 	exists: bool,
 	data:   union {
 		Query_Column_Index,
-		EntityId,
+		Entity,
 	},
 }
 
 Query_Match :: struct {
 	archetype: ^Archetype,
-	parent:    EntityId,
+	parent:    Entity,
 	fields:    sa.Small_Array(Component_Set_Max_Capacity, Query_Field),
 }
 
@@ -58,7 +58,7 @@ Query_Evaluator :: struct {
 	world:  ^World,
 	terms:  []Query_Term,
 	match:  ^Query_Match,
-	parent: EntityId,
+	parent: Entity,
 }
 
 Query_TermEvaluator :: #type proc(evaluator: ^Query_Evaluator, term: ^Query_Term) -> bool
@@ -206,24 +206,16 @@ unique_pair_column :: proc(iterator: ^Query_Iterator, $T: typeid) -> ^Archetype_
 	return &iterator.current_chunk.columns[col_idx]
 }
 
-unique_pair_entity :: proc(iterator: ^Query_Iterator, index: int) -> EntityId {
+unique_pair_entity :: proc(iterator: ^Query_Iterator, index: int) -> Entity {
 	ensure(iterator.current_match != nil)
 	ensure(iterator.terms[index].is_unique_pair)
 
 	fields := sa.slice(&iterator.current_match.fields)
 
-	return fields[index].data.(EntityId)
+	return fields[index].data.(Entity)
 }
 
-row_data :: #force_inline proc(chunk: ^Archetype_Chunk, col: int, row: int, $T: typeid) -> T {
-	return row_data_mut(chunk, col, row, T)^
-}
-
-row_data_mut :: #force_inline proc(chunk: ^Archetype_Chunk, col: int, row: int, $T: typeid) -> ^T {
-	return (^T)(archetype_chunk_get_data(chunk, col, row))
-}
-
-query_get_parent :: proc(it: ^Query_Iterator) -> EntityId {
+query_get_parent :: proc(it: ^Query_Iterator) -> Entity {
 	return it.current_match.parent
 }
 
@@ -236,7 +228,7 @@ term :: proc {
 	term_name,
 }
 
-term_component_id :: proc(world: ^World, component_id: EntityId, optional := false) -> Query_Term {
+term_component_id :: proc(world: ^World, component_id: Entity, optional := false) -> Query_Term {
 	term := Query_Term{}
 
 	term.component_id = component_id
@@ -257,12 +249,7 @@ term_name :: proc(world: ^World, name: string, optional := false) -> Query_Term 
 	return term_component_id(world, find(world, name), optional)
 }
 
-term_pair :: proc(
-	world: ^World,
-	first: EntityId,
-	second: EntityId,
-	optional := false,
-) -> Query_Term {
+term_pair :: proc(world: ^World, first: Entity, second: Entity, optional := false) -> Query_Term {
 	pair := build_pair(first, second)
 	term := term_component_id(world, pair, optional)
 
@@ -273,11 +260,11 @@ term_pair :: proc(
 	return term
 }
 
-term_pair_1 :: proc(world: ^World, $T: typeid, second: EntityId, optional := false) -> Query_Term {
+term_pair_1 :: proc(world: ^World, $T: typeid, second: Entity, optional := false) -> Query_Term {
 	return term_pair(world, get_type_id(world, T), second, optional)
 }
 
-term_pair_2 :: proc(world: ^World, first: EntityId, $T: typeid, optional := false) -> Query_Term {
+term_pair_2 :: proc(world: ^World, first: Entity, $T: typeid, optional := false) -> Query_Term {
 	return term_pair(world, first, get_type_id(world, T), optional)
 }
 
@@ -289,7 +276,7 @@ not_term :: proc {
 	term_not_pair_2,
 }
 
-term_not_component_id :: proc(world: ^World, component_id: EntityId) -> Query_Term {
+term_not_component_id :: proc(world: ^World, component_id: Entity) -> Query_Term {
 	term := term_component_id(world, component_id)
 
 	term.not = true
@@ -303,21 +290,21 @@ term_not_type :: proc(world: ^World, $T: typeid) -> Query_Term {
 	return term
 }
 
-term_not_pair :: proc(world: ^World, first: EntityId, second: EntityId) -> Query_Term {
+term_not_pair :: proc(world: ^World, first: Entity, second: Entity) -> Query_Term {
 	term := term_pair(world, first, second)
 
 	term.not = true
 	return term
 }
 
-term_not_pair_1 :: proc(world: ^World, $T: typeid, second: EntityId) -> Query_Term {
+term_not_pair_1 :: proc(world: ^World, $T: typeid, second: Entity) -> Query_Term {
 	term := term_pair_1(world, T, second)
 
 	term.not = true
 	return term
 }
 
-term_not_pair_2 :: proc(world: ^World, first: EntityId, $T: typeid) -> Query_Term {
+term_not_pair_2 :: proc(world: ^World, first: Entity, $T: typeid) -> Query_Term {
 	term := term_pair_2(world, first, T)
 
 	term.not = true
@@ -572,3 +559,4 @@ clear_matches :: proc(query: ^Query) {
 	clear(&query.matches)
 	clear(&query.match_index)
 }
+

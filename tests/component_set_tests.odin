@@ -6,20 +6,20 @@ import "core:testing"
 
 @(test)
 component_set_tests :: proc(t: ^testing.T) {
-	foo: ecs.EntityId = 1
-	bar: ecs.EntityId = 2
-	plop: ecs.EntityId = 42
-	plap: ecs.EntityId = 24
+	foo: ecs.Entity = 1
+	bar: ecs.Entity = 2
+	plop: ecs.Entity = 42
+	plap: ecs.Entity = 24
 
-	set1 := ecs.set_build([]ecs.EntityId{foo, bar})
+	set1 := ecs.set_build([]ecs.Entity{foo, bar})
 	defer ecs.set_destroy(&set1)
-	set2 := ecs.set_build([]ecs.EntityId{bar, foo})
+	set2 := ecs.set_build([]ecs.Entity{bar, foo})
 	defer ecs.set_destroy(&set2)
-	set3 := ecs.set_build([]ecs.EntityId{bar, foo, plop})
+	set3 := ecs.set_build([]ecs.Entity{bar, foo, plop})
 	defer ecs.set_destroy(&set3)
-	set4 := ecs.set_build([]ecs.EntityId{bar, foo, plop, plap})
+	set4 := ecs.set_build([]ecs.Entity{bar, foo, plop, plap})
 	defer ecs.set_destroy(&set4)
-	set5 := ecs.set_build([]ecs.EntityId{plop, foo, plap, bar})
+	set5 := ecs.set_build([]ecs.Entity{plop, foo, plap, bar})
 	defer ecs.set_destroy(&set5)
 
 	testing.expect(t, set1.hash == set2.hash)
@@ -57,21 +57,21 @@ component_set_tests :: proc(t: ^testing.T) {
 	set10 := ecs.set_remove(&set3, foo)
 	defer ecs.set_destroy(&set10)
 
-	set11 := ecs.set_build([]ecs.EntityId{plop, plap})
+	set11 := ecs.set_build([]ecs.Entity{plop, plap})
 	defer ecs.set_destroy(&set11)
 }
 
 @(test)
 component_set_delete_relationships_tests :: proc(t: ^testing.T) {
-	foo: ecs.EntityId = 1
-	bar: ecs.EntityId = 2
-	plop: ecs.EntityId = 42
-	plap: ecs.EntityId = 24
+	foo: ecs.Entity = 1
+	bar: ecs.Entity = 2
+	plop: ecs.Entity = 42
+	plap: ecs.Entity = 24
 	pair1 := ecs.build_pair(foo, bar)
 	pair2 := ecs.build_pair(bar, foo)
 	pair3 := ecs.build_pair(plop, plap)
 
-	set1 := ecs.set_build([]ecs.EntityId{foo, pair1, pair2, pair3})
+	set1 := ecs.set_build([]ecs.Entity{foo, pair1, pair2, pair3})
 	defer ecs.set_destroy(&set1)
 
 	testing.expect(t, ecs.set_has(&set1, foo))
@@ -87,3 +87,4 @@ component_set_delete_relationships_tests :: proc(t: ^testing.T) {
 	testing.expect(t, !ecs.set_has(&set2, pair2))
 	testing.expect(t, ecs.set_has(&set2, pair3))
 }
+

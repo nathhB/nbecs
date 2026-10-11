@@ -8,50 +8,45 @@ import "core:log"
 import "core:mem"
 import vmem "core:mem/virtual"
 
-EntityId :: u64
+Entity :: u64
 
 // raw entity ids have to fit in 3 bytes
 // "raw" meaning the id without generation and id flags
-EntityId_Raw_Max :: u64(16_777_215)
+Entity_Raw_Max :: u64(16_777_215)
 
 ReservedIDs :: 32
-TypeTrait: EntityId = 1
-Wildcard: EntityId = 2
-ChildOf_Id: EntityId = 3
-Pipeline_Default: EntityId = 4
-OnDelete: EntityId = 5
-UniquePair: EntityId = 6
-DeleteStrategy_Delete: EntityId = 7
-DeleteStrategy_Remove: EntityId = 8
-Prefab: EntityId = 9
-Event_Deleted: EntityId = 10
-System_Id: EntityId = 11
-Watcher_Id: EntityId = 12
+TypeTrait: Entity = 1
+Wildcard: Entity = 2
+ChildOf_Id: Entity = 3
+Pipeline_Default: Entity = 4
+OnDelete: Entity = 5
+UniquePair: Entity = 6
+DeleteStrategy_Delete: Entity = 7
+DeleteStrategy_Remove: Entity = 8
+Prefab: Entity = 9
+Event_Deleted: Entity = 10
+System_Id: Entity = 11
+Watcher_Id: Entity = 12
 
 Component_Type :: struct {
 	type: typeid,
-	id:   EntityId,
+	id:   Entity,
 	size: int,
 }
 
 Entity_Entry :: struct {
-	id:    EntityId,
+	id:    Entity,
 	name:  string,
 	row:   int,
 	chunk: ^Archetype_Chunk,
 }
 
 Archetype_Map :: #type map[u64]^Archetype
-System_Proc :: #type proc(
-	world: ^World,
-	it: ^Query_Iterator,
-	dt: f64,
-	ctx: rawptr,
-) -> bool
+System_Proc :: #type proc(world: ^World, it: ^Query_Iterator, dt: f64, ctx: rawptr) -> bool
 System_Hook_Proc :: #type proc(world: ^World, dt: f64, ctx: rawptr)
 Watcher_Proc :: #type proc(
 	world: ^World,
-	entity: EntityId,
+	entity: Entity,
 	it: ^Query_Iterator,
 	row: int,
 	ctx: rawptr,
@@ -59,16 +54,16 @@ Watcher_Proc :: #type proc(
 )
 
 World :: struct {
-	next_entity_id:      EntityId,
-	entities:            map[EntityId]Entity_Entry,
-	names_index:         map[string]EntityId,
+	next_entity_id:      Entity,
+	entities:            map[Entity]Entity_Entry,
+	names_index:         map[string]Entity,
 	types_to_components: map[typeid]Component_Type,
-	ids_to_components:   map[EntityId]Component_Type,
-	archetype_index:     map[EntityId]Archetype_Map,
+	ids_to_components:   map[Entity]Component_Type,
+	archetype_index:     map[Entity]Archetype_Map,
 	archetypes:          ArchetypeGraph,
 	queries:             [dynamic]^Query,
 	ctx:                 rawptr,
-	pipelines:           map[EntityId]Pipeline,
+	pipelines:           map[Entity]Pipeline,
 	config:              World_Config,
 	arena:               vmem.Arena,
 	allocator:           mem.Allocator,
@@ -78,8 +73,8 @@ World :: struct {
 }
 
 World_Config :: struct {
-	default_delete_strategy: EntityId,
-	id_range:                [2]EntityId,
+	default_delete_strategy: Entity,
+	id_range:                [2]Entity,
 }
 
 World_Info :: struct {
@@ -88,7 +83,7 @@ World_Info :: struct {
 }
 
 Pipeline :: struct {
-	entity: EntityId,
+	entity: Entity,
 	query:  ^Query,
 }
 
@@ -114,15 +109,15 @@ create :: proc(allocator := context.allocator) -> ^World {
 	world := builtin.new(World, allocator)
 
 	world.next_entity_id = 1
-	world.config.id_range = [2]EntityId{1, ReservedIDs + 1}
-	world.entities = make(map[EntityId]Entity_Entry, allocator)
-	world.names_index = make(map[string]EntityId, allocator)
+	world.config.id_range = [2]Entity{1, ReservedIDs + 1}
+	world.entities = make(map[Entity]Entity_Entry, allocator)
+	world.names_index = make(map[string]Entity, allocator)
 	world.types_to_components = make(map[typeid]Component_Type, allocator)
-	world.ids_to_components = make(map[EntityId]Component_Type, allocator)
-	world.archetype_index = make(map[EntityId]Archetype_Map, allocator)
+	world.ids_to_components = make(map[Entity]Component_Type, allocator)
+	world.archetype_index = make(map[Entity]Archetype_Map, allocator)
 	world.allocator = allocator
 	world.snapshot = false
-	world.pipelines = make(map[EntityId]Pipeline, allocator)
+	world.pipelines = make(map[Entity]Pipeline, allocator)
 	world.queries = make([dynamic]^Query, allocator)
 
 	archetype_graph_init(world, &world.archetypes, allocator)
@@ -147,7 +142,7 @@ create :: proc(allocator := context.allocator) -> ^World {
 
 	ensure(world.next_entity_id <= ReservedIDs + 1)
 	world.config.default_delete_strategy = DeleteStrategy_Remove
-	set_id_range(world, [2]EntityId{ReservedIDs + 1, EntityId_Raw_Max})
+	set_id_range(world, [2]Entity{ReservedIDs + 1, Entity_Raw_Max})
 
 	return world
 }
@@ -156,11 +151,11 @@ create_snapshot :: proc(allocator := context.allocator) -> ^World {
 	world := builtin.new(World, allocator)
 
 	world.next_entity_id = 1
-	world.entities = make(map[EntityId]Entity_Entry, allocator)
-	world.names_index = make(map[string]EntityId, allocator)
+	world.entities = make(map[Entity]Entity_Entry, allocator)
+	world.names_index = make(map[string]Entity, allocator)
 	world.types_to_components = make(map[typeid]Component_Type, allocator)
-	world.ids_to_components = make(map[EntityId]Component_Type, allocator)
-	world.archetype_index = make(map[EntityId]Archetype_Map, allocator)
+	world.ids_to_components = make(map[Entity]Component_Type, allocator)
+	world.archetype_index = make(map[Entity]Archetype_Map, allocator)
 	world.allocator = allocator
 	world.snapshot = true
 
@@ -192,18 +187,13 @@ destroy :: proc(world: ^World) {
 	free(world, world.allocator)
 }
 
-pipeline_with_id :: proc(world: ^World, entity: EntityId) {
-	query := query(
-		world,
-		term(world, System),
-		term(world, entity),
-		allocator = world.allocator,
-	)
+pipeline_with_id :: proc(world: ^World, entity: Entity) {
+	query := query(world, term(world, System), term(world, entity), allocator = world.allocator)
 
 	world.pipelines[entity] = Pipeline{entity, query}
 }
 
-pipeline :: proc(world: ^World, name: string) -> EntityId {
+pipeline :: proc(world: ^World, name: string) -> Entity {
 	ensure(!world.snapshot, "Cannot create a pipeline on a snapshot world")
 
 	entity := new(world, name)
@@ -213,7 +203,7 @@ pipeline :: proc(world: ^World, name: string) -> EntityId {
 	return entity
 }
 
-new :: proc(world: ^World, name: string = "", flags: u8 = 0) -> EntityId {
+new :: proc(world: ^World, name: string = "", flags: u8 = 0) -> Entity {
 	ensure(world.next_entity_id <= world.config.id_range[1])
 	entity := build_entity_id(world.next_entity_id, 0, flags)
 
@@ -224,7 +214,7 @@ new :: proc(world: ^World, name: string = "", flags: u8 = 0) -> EntityId {
 	return entity
 }
 
-delete :: proc(world: ^World, entity: EntityId, by_user := true) {
+delete :: proc(world: ^World, entity: Entity, by_user := true) {
 	if world.frozen {
 		panic("Attempted to modify a frozen world")
 	}
@@ -236,11 +226,7 @@ delete :: proc(world: ^World, entity: EntityId, by_user := true) {
 	when ECS_DEBUG {
 		entity_str := entity_to_str(world, entity)
 		defer delete(entity_str)
-		debug_log(
-			"%s requested to delete %s",
-			by_user ? "User" : "System",
-			entity_str,
-		)
+		debug_log("%s requested to delete %s", by_user ? "User" : "System", entity_str)
 	}
 
 	emit(world, Event_Deleted, entity)
@@ -259,16 +245,13 @@ delete :: proc(world: ^World, entity: EntityId, by_user := true) {
 	delete_key(&world.entities, entity)
 }
 
-new_with_id :: proc(world: ^World, entity: EntityId, name: string = "") {
+new_with_id :: proc(world: ^World, entity: Entity, name: string = "") {
 	if world.frozen {
 		panic("Attempted to modify a frozen world")
 	}
 
 	if entity in world.entities {
-		fmt.panicf(
-			"entity {} (info: {}) already exists",
-			entity_to_str(world, entity),
-		)
+		fmt.panicf("entity {} (info: {}) already exists", entity_to_str(world, entity))
 	}
 
 	root := world.archetypes.root
@@ -292,12 +275,7 @@ new_with_id :: proc(world: ^World, entity: EntityId, name: string = "") {
 	}
 }
 
-declare :: proc(
-	world: ^World,
-	$T: typeid,
-	name: string = "",
-	flags: u8 = 0,
-) -> EntityId {
+declare :: proc(world: ^World, $T: typeid, name: string = "", flags: u8 = 0) -> Entity {
 	entity := new(world, name, flags)
 
 	return declare_type(world, entity, T, size_of(T))
@@ -305,22 +283,17 @@ declare :: proc(
 
 declare_with_id :: proc(
 	world: ^World,
-	entity: EntityId,
+	entity: Entity,
 	$T: typeid,
 	name: string = "",
 	flags: u8 = 0,
-) -> EntityId {
+) -> Entity {
 	new_with_id(world, entity, name)
 
 	return declare_type(world, entity, T, size_of(T))
 }
 
-declare_type :: proc(
-	world: ^World,
-	entity: EntityId,
-	type: typeid,
-	size: int,
-) -> EntityId {
+declare_type :: proc(world: ^World, entity: Entity, type: typeid, size: int) -> Entity {
 	ctype := Component_Type{type, entity, size}
 
 	world.types_to_components[type] = ctype
@@ -366,7 +339,7 @@ system_default :: proc(
 system_pipeline :: proc(
 	world: ^World,
 	procedure: System_Proc,
-	pipeline: EntityId,
+	pipeline: Entity,
 	ctx: rawptr,
 	terms: ..Query_Term,
 	before_update_proc: System_Hook_Proc = nil,
@@ -382,11 +355,7 @@ system_pipeline :: proc(
 		q = query(world, ..terms, cascade = cascade, allocator = world.allocator)
 	}
 
-	set(
-		world,
-		system,
-		&System{q, procedure, before_update_proc, after_update_proc, ctx},
-	)
+	set(world, system, &System{q, procedure, before_update_proc, after_update_proc, ctx})
 	add(world, system, pipeline)
 }
 
@@ -413,7 +382,7 @@ system_default_str :: proc(
 system_pipeline_str :: proc(
 	world: ^World,
 	procedure: System_Proc,
-	pipeline: EntityId,
+	pipeline: Entity,
 	ctx: rawptr,
 	query_str: string,
 	before_update_proc: System_Hook_Proc = nil,
@@ -425,11 +394,7 @@ system_pipeline_str :: proc(
 
 	query := query(world, query_str, cascade = cascade, allocator = world.allocator)
 
-	set(
-		world,
-		system,
-		&System{query, procedure, before_update_proc, after_update_proc, ctx},
-	)
+	set(world, system, &System{query, procedure, before_update_proc, after_update_proc, ctx})
 	add(world, system, pipeline)
 }
 
@@ -455,7 +420,7 @@ system_default_no_ctx :: proc(
 system_pipeline_no_ctx :: proc(
 	world: ^World,
 	procedure: System_Proc,
-	pipeline: EntityId,
+	pipeline: Entity,
 	terms: ..Query_Term,
 	before_update_proc: System_Hook_Proc = nil,
 	after_update_proc: System_Hook_Proc = nil,
@@ -495,7 +460,7 @@ system_default_no_ctx_str :: proc(
 system_pipeline_no_ctx_str :: proc(
 	world: ^World,
 	procedure: System_Proc,
-	pipeline: EntityId,
+	pipeline: Entity,
 	query_str: string,
 	before_update_proc: System_Hook_Proc = nil,
 	after_update_proc: System_Hook_Proc = nil,
@@ -521,18 +486,13 @@ watch :: proc {
 	watch_ctx_query,
 }
 
-watch_no_ctx :: proc(
-	world: ^World,
-	event: EntityId,
-	procedure: Watcher_Proc,
-	terms: ..Query_Term,
-) {
+watch_no_ctx :: proc(world: ^World, event: Entity, procedure: Watcher_Proc, terms: ..Query_Term) {
 	watch_ctx(world, event, procedure, nil, ..terms)
 }
 
 watch_no_ctx_str :: proc(
 	world: ^World,
-	event: EntityId,
+	event: Entity,
 	procedure: Watcher_Proc,
 	query_str: string,
 ) {
@@ -541,7 +501,7 @@ watch_no_ctx_str :: proc(
 
 watch_ctx :: proc(
 	world: ^World,
-	event: EntityId,
+	event: Entity,
 	procedure: Watcher_Proc,
 	ctx: rawptr,
 	terms: ..Query_Term,
@@ -553,7 +513,7 @@ watch_ctx :: proc(
 
 watch_ctx_str :: proc(
 	world: ^World,
-	event: EntityId,
+	event: Entity,
 	procedure: Watcher_Proc,
 	ctx: rawptr,
 	query_str: string,
@@ -565,7 +525,7 @@ watch_ctx_str :: proc(
 
 watch_ctx_query :: proc(
 	world: ^World,
-	event: EntityId,
+	event: Entity,
 	procedure: Watcher_Proc,
 	ctx: rawptr,
 	query: ^Query,
@@ -580,7 +540,7 @@ emit :: proc {
 	emit_data,
 }
 
-emit_data :: proc(world: ^World, event: EntityId, entity: EntityId, data: rawptr) {
+emit_data :: proc(world: ^World, event: Entity, entity: Entity, data: rawptr) {
 	ensure(is_valid(world, event))
 	ensure(is_valid(world, entity))
 
@@ -594,8 +554,8 @@ emit_data :: proc(world: ^World, event: EntityId, entity: EntityId, data: rawptr
 		watcher_col := column(&it, 0)
 
 		for chunk in iter_next_chunk(&it) {
-			for row := 0; row < len(chunk.entities); row += 1 {
-				watcher := row_data(chunk, watcher_col, row, Watcher)
+			for row := 0; row < chunk.count; row += 1 {
+				watcher := get(chunk, watcher_col, row, Watcher)
 
 				if query_matches_archetype(watcher.query, archetype) {
 					match := evaluate_archetype(
@@ -614,29 +574,22 @@ emit_data :: proc(world: ^World, event: EntityId, entity: EntityId, data: rawptr
 						0,
 					}
 
-					watcher.procedure(
-						world,
-						entity,
-						&it2,
-						entry.row,
-						watcher.ctx,
-						data,
-					)
+					watcher.procedure(world, entity, &it2, entry.row, watcher.ctx, data)
 				}
 			}
 		}
 	}
 }
 
-emit_no_data :: proc(world: ^World, event: EntityId, entity: EntityId) {
+emit_no_data :: proc(world: ^World, event: Entity, entity: Entity) {
 	emit_data(world, event, entity, nil)
 }
 
-exists :: proc(world: ^World, entity: EntityId) -> bool {
+exists :: proc(world: ^World, entity: Entity) -> bool {
 	return entity in world.entities
 }
 
-is_valid :: proc(world: ^World, entity: EntityId) -> bool {
+is_valid :: proc(world: ^World, entity: Entity) -> bool {
 	return entity > 0 && exists(world, entity)
 }
 
@@ -646,38 +599,38 @@ build_pair :: proc {
 	build_pair_2,
 }
 
-build_pair_with_ids :: proc(first: EntityId, second: EntityId) -> EntityId {
+build_pair_with_ids :: proc(first: Entity, second: Entity) -> Entity {
 	return (u64(first) << 32) | u64(second)
 }
 
-build_pair_1 :: proc(world: ^World, $T: typeid, second: EntityId) -> EntityId {
+build_pair_1 :: proc(world: ^World, $T: typeid, second: Entity) -> Entity {
 	first := get_type_id(world, T)
 
 	return build_pair_with_ids(first, second)
 }
 
-build_pair_2 :: proc(world: ^World, first: EntityId, $T: typeid) -> EntityId {
+build_pair_2 :: proc(world: ^World, first: Entity, $T: typeid) -> Entity {
 	second := get_type_id(world, T)
 
 	return build_pair_with_ids(first, second)
 }
 
-pair_first :: proc(pair: EntityId) -> EntityId {
+pair_first :: proc(pair: Entity) -> Entity {
 	return pair >> 32
 }
 
-pair_second :: proc(pair: EntityId) -> EntityId {
+pair_second :: proc(pair: Entity) -> Entity {
 	return pair & 0xffffffff
 }
 
-pair_split :: proc(pair: EntityId) -> (first: EntityId, second: EntityId) {
+pair_split :: proc(pair: Entity) -> (first: Entity, second: Entity) {
 	first = pair_first(pair)
 	second = pair_second(pair)
 
 	return
 }
 
-pair_contains :: proc(pair: EntityId, entity: EntityId) -> bool {
+pair_contains :: proc(pair: Entity, entity: Entity) -> bool {
 	ensure(is_pair(pair))
 
 	first, second := pair_split(pair)
@@ -685,11 +638,11 @@ pair_contains :: proc(pair: EntityId, entity: EntityId) -> bool {
 	return first == entity || second == entity
 }
 
-is_pair :: proc(entity: EntityId) -> bool {
+is_pair :: proc(entity: Entity) -> bool {
 	return (entity & 0xFFFFFFFF00000000) > 0
 }
 
-is_unique_pair :: proc(world: ^World, entity: EntityId) -> bool {
+is_unique_pair :: proc(world: ^World, entity: Entity) -> bool {
 	is_pair := is_pair(entity)
 
 	if !is_pair {
@@ -701,17 +654,17 @@ is_unique_pair :: proc(world: ^World, entity: EntityId) -> bool {
 	return has(world, first, UniquePair)
 }
 
-is_wildcard_pair :: proc(entity: EntityId) -> bool {
+is_wildcard_pair :: proc(entity: Entity) -> bool {
 	first, second := pair_split(entity)
 
 	return first == Wildcard || second == Wildcard
 }
 
-is_type :: proc(world: ^World, entity: EntityId) -> bool {
+is_type :: proc(world: ^World, entity: Entity) -> bool {
 	return exists(world, entity) && has(world, entity, TypeTrait)
 }
 
-is_tag :: proc(world: ^World, entity: EntityId) -> bool {
+is_tag :: proc(world: ^World, entity: Entity) -> bool {
 	return !is_type(world, entity)
 }
 
@@ -726,13 +679,13 @@ get_component_type_by_type :: proc(world: ^World, $T: typeid) -> Component_Type 
 	return world.types_to_components[T]
 }
 
-get_component_type_by_id :: proc(world: ^World, id: EntityId) -> Component_Type {
+get_component_type_by_id :: proc(world: ^World, id: Entity) -> Component_Type {
 	ensure(id in world.ids_to_components)
 
 	return world.ids_to_components[id]
 }
 
-get_type_id :: proc(world: ^World, $T: typeid) -> EntityId {
+get_type_id :: proc(world: ^World, $T: typeid) -> Entity {
 	type := get_component_type(world, T)
 
 	ensure(is_type(world, type.id))
@@ -740,7 +693,7 @@ get_type_id :: proc(world: ^World, $T: typeid) -> EntityId {
 	return type.id
 }
 
-get_component_size :: proc(world: ^World, component_id: EntityId) -> int {
+get_component_size :: proc(world: ^World, component_id: Entity) -> int {
 	if is_pair(component_id) {
 		return get_pair_size(world, component_id)
 	} else {
@@ -751,7 +704,7 @@ get_component_size :: proc(world: ^World, component_id: EntityId) -> int {
 	}
 }
 
-get_pair_type :: proc(world: ^World, pair: EntityId) -> EntityId {
+get_pair_type :: proc(world: ^World, pair: Entity) -> Entity {
 	ensure(is_pair(pair))
 
 	first, second := pair_split(pair)
@@ -769,7 +722,7 @@ get_pair_type :: proc(world: ^World, pair: EntityId) -> EntityId {
 	return 0
 }
 
-get_pair_size :: proc(world: ^World, pair: EntityId) -> int {
+get_pair_size :: proc(world: ^World, pair: Entity) -> int {
 	ensure(is_pair(pair))
 
 	component_id := get_pair_type(world, pair)
@@ -782,17 +735,13 @@ add :: proc {
 	add_by_id,
 }
 
-add_by_name :: proc(
-	world: ^World,
-	entity: EntityId,
-	add_entity_name: string,
-) -> bool {
+add_by_name :: proc(world: ^World, entity: Entity, add_entity_name: string) -> bool {
 	add_entity := find(world, add_entity_name)
 
 	return add_by_id(world, entity, add_entity)
 }
 
-add_by_id :: proc(world: ^World, entity: EntityId, add_entity: EntityId) -> bool {
+add_by_id :: proc(world: ^World, entity: Entity, add_entity: Entity) -> bool {
 	if world.frozen {
 		panic("Attempted to modify a frozen world")
 	}
@@ -831,12 +780,7 @@ add_by_id :: proc(world: ^World, entity: EntityId, add_entity: EntityId) -> bool
 	src_row := entity_entry.row
 
 	if dest_node == nil {
-		dest_node = archetype_graph_add(
-			world,
-			&world.archetypes,
-			src_node,
-			add_entity,
-		)
+		dest_node = archetype_graph_add(world, &world.archetypes, src_node, add_entity)
 	}
 
 	when ECS_DEBUG {
@@ -848,11 +792,7 @@ add_by_id :: proc(world: ^World, entity: EntityId, add_entity: EntityId) -> bool
 		debug_log("Added %s to %s", add_entity_str, entity_str)
 	}
 
-	dest_chunk, dest_row := archetype_add_entity(
-		world,
-		&dest_node.archetype,
-		entity,
-	)
+	dest_chunk, dest_row := archetype_add_entity(world, &dest_node.archetype, entity)
 
 	move_entity(world, entity_entry, dest_chunk, src_row, dest_row)
 
@@ -865,12 +805,7 @@ add_pair :: proc {
 	add_pair_name_2,
 }
 
-add_pair_ids :: proc(
-	world: ^World,
-	entity: EntityId,
-	first: EntityId,
-	second: EntityId,
-) -> bool {
+add_pair_ids :: proc(world: ^World, entity: Entity, first: Entity, second: Entity) -> bool {
 	ensure(is_valid(world, entity))
 
 	pair := build_pair(first, second)
@@ -878,21 +813,11 @@ add_pair_ids :: proc(
 	return add(world, entity, pair)
 }
 
-add_pair_name_1 :: proc(
-	world: ^World,
-	entity: EntityId,
-	first: string,
-	second: EntityId,
-) -> bool {
+add_pair_name_1 :: proc(world: ^World, entity: Entity, first: string, second: Entity) -> bool {
 	return add_pair_ids(world, entity, find(world, first), second)
 }
 
-add_pair_name_2 :: proc(
-	world: ^World,
-	entity: EntityId,
-	first: EntityId,
-	second: string,
-) -> bool {
+add_pair_name_2 :: proc(world: ^World, entity: Entity, first: Entity, second: string) -> bool {
 	return add_pair_ids(world, entity, first, find(world, second))
 }
 
@@ -902,12 +827,7 @@ remove_pair :: proc {
 	remove_pair_2,
 }
 
-remove_pair_id :: proc(
-	world: ^World,
-	entity: EntityId,
-	first: EntityId,
-	second: EntityId,
-) -> bool {
+remove_pair_id :: proc(world: ^World, entity: Entity, first: Entity, second: Entity) -> bool {
 	ensure(is_valid(world, entity))
 
 	pair := build_pair(first, second)
@@ -915,12 +835,7 @@ remove_pair_id :: proc(
 	return remove(world, entity, pair)
 }
 
-remove_pair_1 :: proc(
-	world: ^World,
-	entity: EntityId,
-	$T: typeid,
-	second: EntityId,
-) -> bool {
+remove_pair_1 :: proc(world: ^World, entity: Entity, $T: typeid, second: Entity) -> bool {
 	ensure(is_valid(world, entity))
 
 	pair := build_pair(world, T, second)
@@ -928,12 +843,7 @@ remove_pair_1 :: proc(
 	return remove(world, entity, pair)
 }
 
-remove_pair_2 :: proc(
-	world: ^World,
-	entity: EntityId,
-	first: EntityId,
-	$T: typeid,
-) -> bool {
+remove_pair_2 :: proc(world: ^World, entity: Entity, first: Entity, $T: typeid) -> bool {
 	ensure(is_valid(world, entity))
 
 	pair := build_pair(world, first, T)
@@ -946,18 +856,13 @@ set :: proc {
 	set_with_id,
 }
 
-set_with_type :: proc(world: ^World, entity: EntityId, data: ^$T) {
+set_with_type :: proc(world: ^World, entity: Entity, data: ^$T) {
 	component_id := get_type_id(world, T)
 	ensure(is_type(world, component_id))
 	set_with_id(world, entity, component_id, data)
 }
 
-set_with_id :: proc(
-	world: ^World,
-	entity: EntityId,
-	component_id: EntityId,
-	data: rawptr,
-) {
+set_with_id :: proc(world: ^World, entity: Entity, component_id: Entity, data: rawptr) {
 	if world.frozen {
 		panic("Attempted to modify a frozen world")
 	}
@@ -981,21 +886,15 @@ set_pair :: proc {
 	set_pair_2,
 }
 
-set_pair_with_id :: proc(
-	world: ^World,
-	entity: EntityId,
-	first: EntityId,
-	second: EntityId,
-	data: ^$T,
-) {
+set_pair_with_id :: proc(world: ^World, entity: Entity, first: Entity, second: Entity, data: ^$T) {
 	set_with_id(world, entity, build_pair(first, second), data)
 }
 
-set_pair_1 :: proc(world: ^World, entity: EntityId, data: ^$T, second: EntityId) {
+set_pair_1 :: proc(world: ^World, entity: Entity, data: ^$T, second: Entity) {
 	set_pair_with_id(world, entity, get_type_id(world, T), second, data)
 }
 
-set_pair_2 :: proc(world: ^World, entity: EntityId, first: EntityId, data: ^$T) {
+set_pair_2 :: proc(world: ^World, entity: Entity, first: Entity, data: ^$T) {
 	set_pair_with_id(world, entity, first, get_type_id(world, T), data)
 }
 
@@ -1005,7 +904,7 @@ remove :: proc {
 	remove_name,
 }
 
-remove_id :: proc(world: ^World, entity: EntityId, rm_entity: EntityId) -> bool {
+remove_id :: proc(world: ^World, entity: Entity, rm_entity: Entity) -> bool {
 	if world.frozen {
 		panic("Attempted to modify a frozen world")
 	}
@@ -1020,32 +919,23 @@ remove_id :: proc(world: ^World, entity: EntityId, rm_entity: EntityId) -> bool 
 		return false
 	}
 
-	dest_node := archetype_graph_remove(
-		world,
-		&world.archetypes,
-		src_node,
-		rm_entity,
-	)
+	dest_node := archetype_graph_remove(world, &world.archetypes, src_node, rm_entity)
 	src_row := entity_entry.row
-	dest_chunk, dest_row := archetype_add_entity(
-		world,
-		&dest_node.archetype,
-		entity,
-	)
+	dest_chunk, dest_row := archetype_add_entity(world, &dest_node.archetype, entity)
 
 	move_entity(world, entity_entry, dest_chunk, src_row, dest_row)
 
 	return true
 }
 
-remove_type :: proc(world: ^World, entity: EntityId, rm: typeid) -> bool {
+remove_type :: proc(world: ^World, entity: Entity, rm: typeid) -> bool {
 	component_type, exists := world.types_to_components[rm]
 	ensure(exists)
 
 	return remove_id(world, entity, component_type.id)
 }
 
-remove_name :: proc(world: ^World, entity: EntityId, rm_name: string) -> bool {
+remove_name :: proc(world: ^World, entity: Entity, rm_name: string) -> bool {
 	rm := find(world, rm_name)
 
 	return remove_id(world, entity, rm)
@@ -1057,7 +947,7 @@ has :: proc {
 	has_name,
 }
 
-has_id :: proc(world: ^World, entity: EntityId, other: EntityId) -> bool {
+has_id :: proc(world: ^World, entity: Entity, other: Entity) -> bool {
 	ensure(is_valid(world, entity))
 	ensure(is_valid(world, other) || is_pair(other))
 
@@ -1066,14 +956,14 @@ has_id :: proc(world: ^World, entity: EntityId, other: EntityId) -> bool {
 	return archetype_has(entity_entry.chunk.archetype, other)
 }
 
-has_type :: proc(world: ^World, entity: EntityId, $T: typeid) -> bool {
+has_type :: proc(world: ^World, entity: Entity, $T: typeid) -> bool {
 	component_id := get_type_id(world, T)
 	ensure(is_type(world, component_id))
 
 	return has_id(world, entity, component_id)
 }
 
-has_name :: proc(world: ^World, entity: EntityId, name: string) -> bool {
+has_name :: proc(world: ^World, entity: Entity, name: string) -> bool {
 	other := find(world, name)
 
 	return has_id(world, entity, other)
@@ -1087,54 +977,39 @@ has_pair :: proc {
 	has_pair_name_2,
 }
 
-has_pair_id :: proc(
-	world: ^World,
-	entity: EntityId,
-	first: EntityId,
-	second: EntityId,
-) -> bool {
+has_pair_id :: proc(world: ^World, entity: Entity, first: Entity, second: Entity) -> bool {
 	ensure(is_valid(world, entity))
 
 	return has(world, entity, build_pair(first, second))
 }
 
-has_pair_type_1 :: proc(
-	world: ^World,
-	entity: EntityId,
-	$T: typeid,
-	second: EntityId,
-) -> bool {
+has_pair_type_1 :: proc(world: ^World, entity: Entity, $T: typeid, second: Entity) -> bool {
 	return has_pair(world, entity, get_type_id(world, T), second)
 }
 
-has_pair_type_2 :: proc(
-	world: ^World,
-	entity: EntityId,
-	first: EntityId,
-	$T: typeid,
-) {
+has_pair_type_2 :: proc(world: ^World, entity: Entity, first: Entity, $T: typeid) {
 	return has_pair(world, entity, first, get_type_id(world, T))
 }
 
-has_pair_name_1 :: proc(
-	world: ^World,
-	entity: EntityId,
-	first: string,
-	second: EntityId,
-) -> bool {
+has_pair_name_1 :: proc(world: ^World, entity: Entity, first: string, second: Entity) -> bool {
 	return has_pair(world, entity, find(world, first), second)
 }
 
-has_pair_name_2 :: proc(
-	world: ^World,
-	entity: EntityId,
-	first: EntityId,
-	second: string,
-) -> bool {
+has_pair_name_2 :: proc(world: ^World, entity: Entity, first: Entity, second: string) -> bool {
 	return has_pair(world, entity, first, find(world, second))
 }
 
-get :: proc(world: ^World, entity: EntityId, $T: typeid) -> T {
+get :: proc {
+	get_component,
+	get_component_from_chunk,
+}
+
+get_mut :: proc {
+	get_component_mut,
+	get_component_from_chunk_mut,
+}
+
+get_component :: proc(world: ^World, entity: Entity, $T: typeid) -> T {
 	ensure(is_valid(world, entity))
 
 	component_id := get_component_type(world, T).id
@@ -1144,14 +1019,49 @@ get :: proc(world: ^World, entity: EntityId, $T: typeid) -> T {
 	return comp
 }
 
-get_safe :: proc(
-	world: ^World,
-	entity: EntityId,
+get_component_from_chunk :: #force_inline proc(
+	chunk: ^Archetype_Chunk,
+	col: int,
+	row: int,
 	$T: typeid,
-) -> (
-	comp: T,
-	ok: bool,
-) {
+) -> T {
+	return get_mut(chunk, col, row, T)^
+}
+
+get_component_mut :: proc(world: ^World, entity: Entity, $T: typeid) -> ^T {
+	component_id := get_component_type(world, T).id
+
+	return (^T)(get_mut_with_id(world, entity, component_id))
+}
+
+get_component_from_chunk_mut :: #force_inline proc(
+	chunk: ^Archetype_Chunk,
+	col: int,
+	row: int,
+	$T: typeid,
+) -> ^T {
+	return (^T)(archetype_chunk_get_data(chunk, col, row))
+}
+
+get_mut_with_id :: proc(world: ^World, entity: Entity, component_id: Entity) -> rawptr {
+	if world.frozen {
+		panic("Attempted to retrieve mutable data from a frozen world")
+	}
+
+	ensure(is_valid(world, entity))
+	ensure(is_pair(component_id) || is_valid(world, component_id))
+	ensure(has(world, entity, component_id))
+
+	entity_entry := &world.entities[entity]
+	chunk := entity_entry.chunk
+	row := entity_entry.row
+	assert(chunk.entities[entity_entry.row] == entity)
+	col_idx := chunk.archetype.component_column_map[component_id]
+
+	return archetype_chunk_get_data(chunk, col_idx, row)
+}
+
+get_safe :: proc(world: ^World, entity: Entity, $T: typeid) -> (comp: T, ok: bool) {
 	ensure(is_valid(world, entity))
 
 	component_id := get_component_type(world, T).id
@@ -1172,34 +1082,6 @@ get_safe :: proc(
 	return ptr^, true
 }
 
-get_mut :: proc(world: ^World, entity: EntityId, $T: typeid) -> ^T {
-	component_id := get_component_type(world, T).id
-
-	return (^T)(get_mut_with_id(world, entity, component_id))
-}
-
-get_mut_with_id :: proc(
-	world: ^World,
-	entity: EntityId,
-	component_id: EntityId,
-) -> rawptr {
-	if world.frozen {
-		panic("Attempted to retrieve mutable data from a frozen world")
-	}
-
-	ensure(is_valid(world, entity))
-	ensure(is_pair(component_id) || is_valid(world, component_id))
-	ensure(has(world, entity, component_id))
-
-	entity_entry := &world.entities[entity]
-	chunk := entity_entry.chunk
-	row := entity_entry.row
-	assert(chunk.entities[entity_entry.row] == entity)
-	col_idx := chunk.archetype.component_column_map[component_id]
-
-	return archetype_chunk_get_data(chunk, col_idx, row)
-}
-
 get_pair :: proc {
 	get_pair_1,
 	get_pair_2,
@@ -1209,51 +1091,27 @@ get_pair_mut :: proc {
 	get_pair_mut_2,
 }
 
-get_pair_1 :: proc(
-	world: ^World,
-	entity: EntityId,
-	$T: typeid,
-	second: EntityId,
-) -> T {
+get_pair_1 :: proc(world: ^World, entity: Entity, $T: typeid, second: Entity) -> T {
 	return get_pair_mut_1(world, entity, T, second)^
 }
 
-get_pair_2 :: proc(
-	world: ^World,
-	entity: EntityId,
-	first: EntityId,
-	$T: typeid,
-) -> T {
+get_pair_2 :: proc(world: ^World, entity: Entity, first: Entity, $T: typeid) -> T {
 	return get_pair_mut_1(world, entity, first, T)^
 }
 
-get_pair_mut_1 :: proc(
-	world: ^World,
-	entity: EntityId,
-	$T: typeid,
-	second: EntityId,
-) -> ^T {
+get_pair_mut_1 :: proc(world: ^World, entity: Entity, $T: typeid, second: Entity) -> ^T {
 	pair_id := build_pair(get_component_type(world, T).id, second)
 
 	return (^T)(get_mut_with_id(world, entity, pair_id))
 }
 
-get_pair_mut_2 :: proc(
-	world: ^World,
-	entity: EntityId,
-	first: EntityId,
-	second: $T,
-) -> ^T {
+get_pair_mut_2 :: proc(world: ^World, entity: Entity, first: Entity, second: $T) -> ^T {
 	pair_id := build_pair(first, get_component_type(world, T).id)
 
 	return (^T)(get_mut_with_id(world, entity, pair_id))
 }
 
-get_entity_pair :: proc(
-	world: ^World,
-	entity: EntityId,
-	first: EntityId,
-) -> EntityId {
+get_entity_pair :: proc(world: ^World, entity: Entity, first: Entity) -> Entity {
 	ensure(is_valid(world, entity))
 	ensure(is_valid(world, first))
 
@@ -1267,11 +1125,7 @@ get_entity_pairs :: proc {
 	get_entity_pairs_type,
 }
 
-get_entity_pairs_id :: proc(
-	world: ^World,
-	entity: EntityId,
-	first: EntityId,
-) -> []EntityId {
+get_entity_pairs_id :: proc(world: ^World, entity: Entity, first: Entity) -> []Entity {
 	ensure(is_valid(world, entity))
 	ensure(is_valid(world, first))
 
@@ -1280,28 +1134,24 @@ get_entity_pairs_id :: proc(
 	return archetype_get_pairs(entity_entry.chunk.archetype, first)
 }
 
-get_entity_pairs_type :: proc(
-	world: ^World,
-	entity: EntityId,
-	$T: typeid,
-) -> []EntityId {
+get_entity_pairs_type :: proc(world: ^World, entity: Entity, $T: typeid) -> []Entity {
 	return get_entity_pairs_id(world, entity, get_type_id(world, T))
 }
 
-get_entity_id :: proc(entity: EntityId) -> EntityId {
-	return EntityId(u32(entity) & 0x00FFFFFF)
+get_entity_id :: proc(entity: Entity) -> Entity {
+	return Entity(u32(entity) & 0x00FFFFFF)
 }
 
-get_entity_flags :: proc(entity: EntityId) -> u8 {
+get_entity_flags :: proc(entity: Entity) -> u8 {
 	return u8(u32(entity) >> 24)
 }
 
-get_generation :: proc(entity: EntityId) -> u16 {
+get_generation :: proc(entity: Entity) -> u16 {
 	return u16(entity >> 32)
 }
 
-build_entity_id :: proc(id: EntityId, gen: u16, flags: u8 = 0) -> EntityId {
-	ensure(id <= EntityId_Raw_Max)
+build_entity_id :: proc(id: Entity, gen: u16, flags: u8 = 0) -> Entity {
+	ensure(id <= Entity_Raw_Max)
 	id_with_flags := u32(id) | (u32(flags) << 24)
 	return u64(id_with_flags) | (u64(gen) << 32)
 }
@@ -1321,8 +1171,8 @@ update :: proc(world: ^World, dt: f64, pipeline := Pipeline_Default) {
 		col := column(&it, 0)
 
 		for chunk in iter_next_chunk(&it) {
-			for row := 0; row < len(chunk.entities); row += 1 {
-				system := row_data(chunk, col, row, System)
+			for row := 0; row < chunk.count; row += 1 {
+				system := get(chunk, col, row, System)
 
 				update_system(world, &system, dt)
 			}
@@ -1353,7 +1203,7 @@ update_system :: proc(world: ^World, system_data: ^System, dt: f64) {
 	}
 }
 
-set_parent :: proc(world: ^World, entity: EntityId, parent: EntityId) {
+set_parent :: proc(world: ^World, entity: Entity, parent: Entity) {
 	ensure(is_valid(world, entity))
 	ensure(is_valid(world, parent))
 
@@ -1362,7 +1212,7 @@ set_parent :: proc(world: ^World, entity: EntityId, parent: EntityId) {
 	set_pair(world, entity, ChildOf_Id, parent, &ChildOf{depth + 1})
 }
 
-get_parent :: proc(world: ^World, entity: EntityId) -> EntityId {
+get_parent :: proc(world: ^World, entity: Entity) -> Entity {
 	ensure(is_valid(world, entity))
 
 	entity_entry := &world.entities[entity]
@@ -1372,19 +1222,15 @@ get_parent :: proc(world: ^World, entity: EntityId) -> EntityId {
 	return parent
 }
 
-get_children :: proc(
-	world: ^World,
-	entity: EntityId,
-	allocator := context.allocator,
-) -> []EntityId {
+get_children :: proc(world: ^World, entity: Entity, allocator := context.allocator) -> []Entity {
 	childof_pair := build_pair(ChildOf_Id, entity)
 	it := iter(world, term(world, childof_pair), allocator = allocator)
 
-	children := make([dynamic]EntityId, allocator = allocator)
+	children := make([dynamic]Entity, allocator = allocator)
 
 	for iter_next_match(&it) {
 		for chunk in iter_next_chunk(&it) {
-			for row := 0; row < len(chunk.entities); row += 1 {
+			for row := 0; row < chunk.count; row += 1 {
 				append(&children, chunk.entities[row])
 			}
 		}
@@ -1393,33 +1239,33 @@ get_children :: proc(
 	return children[:]
 }
 
-get_entity_depth :: proc(world: ^World, entity: EntityId) -> int {
+get_entity_depth :: proc(world: ^World, entity: Entity) -> int {
 	entry := &world.entities[entity]
 
 	return entry.chunk.archetype.depth
 }
 
-get_name :: proc(world: ^World, entity: EntityId) -> string {
+get_name :: proc(world: ^World, entity: Entity) -> string {
 	ensure(is_valid(world, entity))
 
 	return world.entities[entity].name
 }
 
-find_safe :: proc(world: ^World, name: string) -> (entity: EntityId, exists: bool) {
+find_safe :: proc(world: ^World, name: string) -> (entity: Entity, exists: bool) {
 	entity, exists = world.names_index[name]
 	ensure(!exists || is_valid(world, entity))
 
 	return
 }
 
-find :: proc(world: ^World, name: string) -> EntityId {
+find :: proc(world: ^World, name: string) -> Entity {
 	entity, exists := find_safe(world, name)
 	ensure(!exists || is_valid(world, entity))
 
 	return entity
 }
 
-set_id_range :: proc(world: ^World, range: [2]EntityId, set_next_id := true) {
+set_id_range :: proc(world: ^World, range: [2]Entity, set_next_id := true) {
 	if world.frozen {
 		panic("Attempted to modify a frozen world")
 	}
@@ -1427,16 +1273,16 @@ set_id_range :: proc(world: ^World, range: [2]EntityId, set_next_id := true) {
 	r_min := range[0]
 	r_max := range[1]
 
-	ensure(r_min > ReservedIDs && r_max <= EntityId_Raw_Max)
+	ensure(r_min > ReservedIDs && r_max <= Entity_Raw_Max)
 
-	world.config.id_range = [2]EntityId{r_min, r_max}
+	world.config.id_range = [2]Entity{r_min, r_max}
 
 	if set_next_id {
 		world.next_entity_id = world.config.id_range[0]
 	}
 }
 
-set_default_delete_strategy :: proc(world: ^World, strategy: EntityId) {
+set_default_delete_strategy :: proc(world: ^World, strategy: Entity) {
 	if world.frozen {
 		panic("Attempted to modify a frozen world")
 	}
@@ -1454,7 +1300,7 @@ set_context :: proc(world: ^World, ctx: rawptr) {
 	world.ctx = ctx
 }
 
-set_deletion_strategy :: proc(world: ^World, entity: EntityId, strategy: EntityId) {
+set_deletion_strategy :: proc(world: ^World, entity: Entity, strategy: Entity) {
 	if world.frozen {
 		panic("Attempted to modify a frozen world")
 	}
@@ -1468,18 +1314,18 @@ set_deletion_strategy :: proc(world: ^World, entity: EntityId, strategy: EntityI
 	add(world, entity, build_pair(OnDelete, strategy))
 }
 
-prefab :: proc(world: ^World, name := "") -> EntityId {
+prefab :: proc(world: ^World, name := "") -> Entity {
 	prefab := new(world, name)
 
 	add(world, prefab, Prefab)
 	return prefab
 }
 
-is_prefab :: proc(world: ^World, entity: EntityId) -> bool {
+is_prefab :: proc(world: ^World, entity: Entity) -> bool {
 	return has(world, entity, Prefab)
 }
 
-new_instance_of :: proc(world: ^World, prefab: EntityId, name := "") -> EntityId {
+new_instance_of :: proc(world: ^World, prefab: Entity, name := "") -> Entity {
 	ensure(is_prefab(world, prefab))
 
 	entity := new(world, name)
@@ -1496,11 +1342,7 @@ new_instance_of :: proc(world: ^World, prefab: EntityId, name := "") -> EntityId
 	archetype_chunk_copy_row(src_chunk, dest_chunk, src_row, dest_row)
 	remove(world, entity, Prefab)
 
-	prefab_children := get_children(
-		world,
-		prefab,
-		allocator = context.temp_allocator,
-	)
+	prefab_children := get_children(world, prefab, allocator = context.temp_allocator)
 
 	for prefab_child in prefab_children {
 		child := new_instance_of(world, prefab_child)
@@ -1533,8 +1375,7 @@ move_entity_to_existing_row :: proc(
 		defer delete(entity_str)
 		src_arch_str := archetype_to_str(world, src_archetype)
 		defer delete(src_arch_str)
-		dest_arch_str :=
-			dest_chunk != nil ? archetype_to_str(world, dest_chunk.archetype) : "NULL"
+		dest_arch_str := dest_chunk != nil ? archetype_to_str(world, dest_chunk.archetype) : "NULL"
 		debug_log("Move %s from %s to %s", entity_str, src_arch_str, dest_arch_str)
 		defer if dest_chunk != nil {
 			delete(dest_arch_str)
@@ -1564,17 +1405,13 @@ move_entity_to_new_row :: proc(
 	dest_archetype: ^Archetype,
 	src_row: int,
 ) {
-	dest_chunk, dest_row := archetype_add_entity(
-		world,
-		dest_archetype,
-		entity_entry.id,
-	)
+	dest_chunk, dest_row := archetype_add_entity(world, dest_archetype, entity_entry.id)
 
 	move_entity_to_existing_row(world, entity_entry, dest_chunk, src_row, dest_row)
 }
 
 @(private)
-index_archetype :: proc(world: ^World, entity: EntityId, archetype: ^Archetype) {
+index_archetype :: proc(world: ^World, entity: Entity, archetype: ^Archetype) {
 	if entity not_in world.archetype_index {
 		world.archetype_index[entity] = make(Archetype_Map, world.allocator)
 	}
@@ -1611,7 +1448,7 @@ on_archetype_created :: proc(world: ^World, archetype: ^Archetype) {
 on_archetype_deleted :: proc(
 	world: ^World,
 	archetype: ^Archetype,
-	deleted_entity: EntityId,
+	deleted_entity: Entity,
 	relationship: bool,
 ) {
 	ensure(!archetype.is_root)
@@ -1625,28 +1462,21 @@ on_archetype_deleted :: proc(
 	}
 
 	strategy := get_deletion_strategy(world, deleted_entity)
-	entities := make([]EntityId, archetype.chunk_capacity, context.temp_allocator)
+	entities := make([]Entity, archetype.chunk_capacity, context.temp_allocator)
 
 	for chunk in archetype.chunks {
-		chunk_count := len(chunk.entities)
-
-		if chunk_count == 0 {
+		if chunk.count == 0 {
 			continue
 		}
 
-		copied_count := copy(entities, chunk.entities[0:chunk_count])
-		ensure(copied_count == chunk_count)
+		copied_count := copy(entities, chunk.entities[0:chunk.count])
+		ensure(copied_count == chunk.count)
 
-		for entity in entities[0:chunk_count] {
+		for entity in entities[0:chunk.count] {
 			if relationship {
 				handle_relationship_deleted(world, entity, deleted_entity, strategy)
 			} else {
-				handle_normal_entity_deleted(
-					world,
-					entity,
-					deleted_entity,
-					strategy,
-				)
+				handle_normal_entity_deleted(world, entity, deleted_entity, strategy)
 			}
 		}
 	}
@@ -1681,9 +1511,9 @@ on_archetype_deleted :: proc(
 @(private)
 handle_normal_entity_deleted :: proc(
 	world: ^World,
-	entity: EntityId,
-	deleted_entity: EntityId,
-	strategy: EntityId,
+	entity: Entity,
+	deleted_entity: Entity,
+	strategy: Entity,
 ) {
 	ensure(has(world, entity, deleted_entity))
 
@@ -1699,19 +1529,15 @@ handle_normal_entity_deleted :: proc(
 @(private)
 handle_relationship_deleted :: proc(
 	world: ^World,
-	entity: EntityId,
-	deleted_entity: EntityId,
-	strategy: EntityId,
+	entity: Entity,
+	deleted_entity: Entity,
+	strategy: Entity,
 ) {
 	if strategy == DeleteStrategy_Remove {
 		entry := &world.entities[entity]
 		set := &entry.chunk.archetype.component_set
 		new_set := set_remove_relationship(set, deleted_entity, world.allocator)
-		target_node, exists := archetype_graph_get_or_create(
-			world,
-			&world.archetypes,
-			&new_set,
-		)
+		target_node, exists := archetype_graph_get_or_create(world, &world.archetypes, &new_set)
 
 		if exists {
 			set_destroy(&new_set)
@@ -1726,7 +1552,7 @@ handle_relationship_deleted :: proc(
 }
 
 @(private)
-get_deletion_strategy :: proc(world: ^World, entity: EntityId) -> EntityId {
+get_deletion_strategy :: proc(world: ^World, entity: Entity) -> Entity {
 	if has(world, entity, build_pair(OnDelete, DeleteStrategy_Delete)) {
 		return DeleteStrategy_Delete
 	}
@@ -1741,8 +1567,8 @@ get_deletion_strategy :: proc(world: ^World, entity: EntityId) -> EntityId {
 @(private)
 cleanup_archetypes :: proc(
 	world: ^World,
-	index_entity: EntityId,
-	deleted_entity: EntityId,
+	index_entity: Entity,
+	deleted_entity: Entity,
 	relationship: bool,
 ) {
 	when ECS_DEBUG {
@@ -1764,13 +1590,7 @@ cleanup_archetypes :: proc(
 	archetype_map := world.archetype_index[index_entity]
 
 	for hash, _ in archetype_map {
-		archetype_graph_cleanup(
-			world,
-			&world.archetypes,
-			hash,
-			deleted_entity,
-			relationship,
-		)
+		archetype_graph_cleanup(world, &world.archetypes, hash, deleted_entity, relationship)
 	}
 
 	delete_map(archetype_map)

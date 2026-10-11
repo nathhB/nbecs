@@ -161,11 +161,11 @@ move :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr) -
 	vel_col := ecs.column(it, 1)
 
 	for chunk in ecs.iter_next_chunk(it) {
-		for row := 0; row < len(chunk.entities); row += 1 {
+		for row := 0; row < chunk.count; row += 1 {
 			ctx.move_process_count += 1
 
-			pos := ecs.row_data_mut(chunk, pos_col, row, Position)
-			vel := ecs.row_data(chunk, vel_col, row, Velocity)
+			pos := ecs.get_mut(chunk, pos_col, row, Position)
+			vel := ecs.get(chunk, vel_col, row, Velocity)
 
 			pos.x += vel.x
 			pos.y += vel.y
@@ -181,11 +181,11 @@ damage :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr)
 	health_col := ecs.column(it, 1)
 
 	for chunk in ecs.iter_next_chunk(it) {
-		for row := 0; row < len(chunk.entities); row += 1 {
+		for row := 0; row < chunk.count; row += 1 {
 			ctx.damage_process_count += 1
 
-			health := ecs.row_data_mut(chunk, health_col, row, Health)
-			damage := ecs.row_data(chunk, health_col, row, Damage)
+			health := ecs.get_mut(chunk, health_col, row, Health)
+			damage := ecs.get(chunk, health_col, row, Damage)
 
 			total_dmg := damage.atk - damage.def
 
@@ -203,10 +203,10 @@ health :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr)
 	health_col := ecs.column(it, 0)
 
 	for chunk in ecs.iter_next_chunk(it) {
-		for row := 0; row < len(chunk.entities); row += 1 {
+		for row := 0; row < chunk.count; row += 1 {
 			ctx.health_process_count += 1
 
-			health := ecs.row_data_mut(chunk, health_col, row, Health)
+			health := ecs.get_mut(chunk, health_col, row, Health)
 
 			if health.hp <= 0 && health.status != .Dead {
 				health.status = .Dead
@@ -229,10 +229,10 @@ data :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr) -
 	data_col := ecs.column(it, 0)
 
 	for chunk in ecs.iter_next_chunk(it) {
-		for row := 0; row < len(chunk.entities); row += 1 {
+		for row := 0; row < chunk.count; row += 1 {
 			ctx.data_process_count += 1
 
-			data := ecs.row_data_mut(chunk, data_col, row, Data)
+			data := ecs.get_mut(chunk, data_col, row, Data)
 
 			data.thingy = data.thingy + 1 % Entity_Count
 			data.dingy += 0.0001 * dt
@@ -251,12 +251,12 @@ sprite :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr)
 	health_col := ecs.column(it, 2)
 
 	for chunk in ecs.iter_next_chunk(it) {
-		for row := 0; row < len(chunk.entities); row += 1 {
+		for row := 0; row < chunk.count; row += 1 {
 			ctx.sprite_process_count += 1
 
-			player := ecs.row_data(chunk, player_col, row, Player)
-			health := ecs.row_data(chunk, health_col, row, Health)
-			sprite := ecs.row_data_mut(chunk, sprite_col, row, Sprite)
+			player := ecs.get(chunk, player_col, row, Player)
+			health := ecs.get(chunk, health_col, row, Health)
+			sprite := ecs.get_mut(chunk, sprite_col, row, Sprite)
 
 			switch health.status {
 			case .Alive:
@@ -285,13 +285,14 @@ render :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr)
 	pos_col := ecs.column(it, 1)
 
 	for chunk in ecs.iter_next_chunk(it) {
-		for row := 0; row < len(chunk.entities); row += 1 {
+		for row := 0; row < chunk.count; row += 1 {
 			ctx.render_process_count += 1
 
-			sprite := ecs.row_data(chunk, sprite_col, row, Sprite)
-			pos := ecs.row_data(chunk, pos_col, row, Position)
+			sprite := ecs.get(chunk, sprite_col, row, Sprite)
+			pos := ecs.get(chunk, pos_col, row, Position)
 		}
 	}
 
 	return true
 }
+

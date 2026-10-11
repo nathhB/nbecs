@@ -12,7 +12,7 @@ debug_log :: proc(msg: string, args: ..any, loc := #caller_location) {
 	log.debugf("ECS: %s", fmt_msg, location = loc)
 }
 
-entity_to_str :: proc(world: ^World, entity: EntityId) -> string {
+entity_to_str :: proc(world: ^World, entity: Entity) -> string {
 	if is_pair(entity) {
 		return pair_to_str(world, entity)
 	} else {
@@ -23,7 +23,7 @@ entity_to_str :: proc(world: ^World, entity: EntityId) -> string {
 	}
 }
 
-pair_to_str :: proc(world: ^World, entity: EntityId) -> string {
+pair_to_str :: proc(world: ^World, entity: Entity) -> string {
 	ensure(is_pair(entity))
 
 	first, second := pair_split(entity)
@@ -110,7 +110,9 @@ archetype_chunk_to_str :: proc(world: ^World, chunk: ^Archetype_Chunk) -> string
 	strings.builder_init(&sb)
 	defer strings.builder_destroy(&sb)
 
-	for entity in chunk.entities {
+	for row := 0; row < chunk.count; row += 1 {
+		entity := chunk.entities[row]
+
 		strings.write_string(&sb, "\t- ")
 		entity_str := entity_to_str(world, entity)
 		defer delete_string(entity_str)
@@ -238,3 +240,4 @@ query_term_str :: proc(world: ^World, term: Query_Term) -> string {
 	str := strings.to_string(sb)
 	return strings.clone(str)
 }
+

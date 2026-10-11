@@ -82,3 +82,4 @@ check_parsed_query_tokens :: proc(
 		testing.expect_value(t, token.str, expected_tokens[idx], loc)
 	}
 }
+

@@ -9,8 +9,8 @@ import "core:testing"
 Watcher_Context :: struct {
 	foo_count: int,
 	bar_count: int,
-	e1:        ecs.EntityId,
-	e2:        ecs.EntityId,
+	e1:        ecs.Entity,
+	e2:        ecs.Entity,
 	t:         ^testing.T,
 }
 
@@ -52,7 +52,7 @@ watch_delete_events_tests :: proc(t: ^testing.T) {
 
 on_deleted_foo :: proc(
 	world: ^ecs.World,
-	entity: ecs.EntityId,
+	entity: ecs.Entity,
 	it: ^ecs.Query_Iterator,
 	row: int,
 	ctx: rawptr,
@@ -61,7 +61,7 @@ on_deleted_foo :: proc(
 	ctx := (^Watcher_Context)(ctx)
 	chunk := it.current_chunk
 	foo_col := ecs.column(it, 0)
-	foo := ecs.row_data(chunk, foo_col, row, Foo)
+	foo := ecs.get(chunk, foo_col, row, Foo)
 
 	testing.expect(ctx.t, entity == ctx.e1 || entity == ctx.e2)
 
@@ -76,7 +76,7 @@ on_deleted_foo :: proc(
 
 on_deleted_foo_bar :: proc(
 	world: ^ecs.World,
-	entity: ecs.EntityId,
+	entity: ecs.Entity,
 	it: ^ecs.Query_Iterator,
 	row: int,
 	ctx: rawptr,
@@ -86,8 +86,8 @@ on_deleted_foo_bar :: proc(
 	chunk := it.current_chunk
 	foo_col := ecs.column(it, 0)
 	bar_col := ecs.column(it, 1)
-	foo := ecs.row_data(chunk, foo_col, row, Foo)
-	bar := ecs.row_data(chunk, bar_col, row, Bar)
+	foo := ecs.get(chunk, foo_col, row, Foo)
+	bar := ecs.get(chunk, bar_col, row, Bar)
 
 	testing.expect(ctx.t, entity == ctx.e2)
 
@@ -99,3 +99,4 @@ on_deleted_foo_bar :: proc(
 	ctx.foo_count += 1
 	ctx.bar_count += 1
 }
+
