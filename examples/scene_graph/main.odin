@@ -26,24 +26,24 @@ main :: proc() {
 
 	rl.InitWindow(800, 600, "nbecs - Scene Graph")
 
-	world := ecs.ecs_create()
-	defer ecs.ecs_destroy(world)
+	world := ecs.create()
+	defer ecs.destroy(world)
 
-	ecs.ecs_declare(world, Transform, "Transform")
-	ecs.ecs_declare(world, Rect, "Rect")
-	ecs.ecs_declare(world, Circle, "Circle")
+	ecs.declare(world, Transform, "Transform")
+	ecs.declare(world, Rect, "Rect")
+	ecs.declare(world, Circle, "Circle")
 
-	ecs.ecs_system(world, update_transforms, "Transform", cascade = true)
-	ecs.ecs_system(world, draw_rects, "Transform Rect")
-	ecs.ecs_system(world, draw_links, "Transform Rect")
+	ecs.system(world, update_transforms, nil, "Transform", cascade = true)
+	ecs.system(world, draw_rects, nil, "Transform Rect")
+	ecs.system(world, draw_links, nil, "Transform Rect")
 
-	root := ecs.ecs_new(world, "ROOT")
-	ecs.ecs_set(world, root, &Transform{Vec2{0, 0}, 0, Vec2{0, 0}, 0})
+	root := ecs.new(world, "ROOT")
+	ecs.set(world, root, &Transform{Vec2{0, 0}, 0, Vec2{0, 0}, 0})
 
 	create_scene(world)
 
 	for !rl.WindowShouldClose() {
-		ecs.ecs_update(world, f64(rl.GetFrameTime()))
+		ecs.update(world, f64(rl.GetFrameTime()))
 
 		rl.BeginDrawing()
 		{
@@ -61,46 +61,47 @@ create_scene :: proc(world: ^ecs.World) {
 	r5 := create_rect(world, Vec2{150, 0}, 0, Vec2{25, 25})
 	r6 := create_rect(world, Vec2{350, 50}, 0, Vec2{25, 25})
 
-	ecs.ecs_set_parent(world, r2, r1)
-	ecs.ecs_set_parent(world, r3, r2)
-	ecs.ecs_set_parent(world, r4, r3)
-	ecs.ecs_set_parent(world, r5, r1)
+	ecs.set_parent(world, r2, r1)
+	ecs.set_parent(world, r3, r2)
+	ecs.set_parent(world, r4, r3)
+	ecs.set_parent(world, r5, r1)
 }
 
-create_rect :: proc(world: ^ecs.World, pos: Vec2, rot: f32, size: Vec2) -> ecs.EntityId {
-	entity := ecs.ecs_new(world)
+create_rect :: proc(world: ^ecs.World, pos: Vec2, rot: f32, size: Vec2) -> ecs.Entity {
+	entity := ecs.new(world)
 
-	ecs.ecs_set(world, entity, &Transform{pos, rot, Vec2{0, 0}, 0})
-	ecs.ecs_set(world, entity, &Rect{size.x, size.y})
+	ecs.set(world, entity, &Transform{pos, rot, Vec2{0, 0}, 0})
+	ecs.set(world, entity, &Rect{size.x, size.y})
 
 	return entity
 }
 
 update_transforms :: proc(
 	world: ^ecs.World,
-	it: ^ecs.QueryIterator,
+	it: ^ecs.Query_Iterator,
 	dt: f64,
 	ctx: rawptr,
 ) -> bool {
-	chunk := it.current_chunk
-	transform_col := ecs.query_column(it, 0)
+	transform_col := ecs.column(it, 0)
 	parent := ecs.query_get_parent(it)
 	parent_matrix := lin.identity_matrix(Mat3x3)
 	parent_rot: f32 = 0
 
 	if parent != 0 {
-		parent_transform := ecs.ecs_get(world, parent, Transform)
+		parent_transform := ecs.get(world, parent, Transform)
 
 		parent_matrix = build_matrix(parent_transform)
 		parent_rot = parent_transform.world_rot
 	}
 
-	for row := 0; row < chunk.count; row += 1 {
-		transform := ecs.query_entity_data_mut(transform_col, row, Transform)
-		world_pos := mul_v2_with_m3(transform.local_pos, parent_matrix)
+	for chunk in ecs.iter_next_chunk(it) {
+		for row := 0; row < chunk.count; row += 1 {
+			transform := ecs.get_mut(chunk, transform_col, row, Transform)
+			world_pos := mul_v2_with_m3(transform.local_pos, parent_matrix)
 
-		transform.world_pos = Vec2{world_pos.x, world_pos.y}
-		transform.world_rot = transform.local_rot + parent_rot
+			transform.world_pos = Vec2{world_pos.x, world_pos.y}
+			transform.world_rot = transform.local_rot + parent_rot
+		}
 	}
 
 	return true
@@ -138,47 +139,47 @@ build_local_rotation_matrix :: proc(transform: Transform) -> Mat3x3 {
 	return to_world * rotate * to_origin
 }
 
-draw_rects :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr) -> bool {
-	chunk := it.current_chunk
-	transform_col := ecs.query_column(it, 0)
-	rect_col := ecs.query_column(it, 1)
+draw_rects :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr) -> bool {
+	transform_col := ecs.column(it, 0)
+	rect_col := ecs.column(it, 1)
 	parent := ecs.query_get_parent(it)
 
-	for row := 0; row < len(chunk.entities); row += 1 {
-		transform := ecs.query_entity_data(transform_col, row, Transform)
-		size := ecs.query_entity_data(rect_col, row, Rect)
-		world_pos := transform.world_pos
-		width := size.x
-		heigth := size.y
+	for chunk in ecs.iter_next_chunk(it) {
+		for row := 0; row < chunk.count; row += 1 {
+			transform := ecs.get(chunk, transform_col, row, Transform)
+			size := ecs.get(chunk, rect_col, row, Rect)
+			world_pos := transform.world_pos
+			width := size.x
+			heigth := size.y
 
-		topleft_x := world_pos.x - width / 2
-		topleft_y := world_pos.y - heigth / 2
-		topright_x := world_pos.x + width / 2
-		topright_y := world_pos.y - heigth / 2
-		bottomright_x := world_pos.x + width / 2
-		bottomright_y := world_pos.y + heigth / 2
-		bottomleft_x := world_pos.x - width / 2
-		bottomleft_y := world_pos.y + heigth / 2
-		rotate_mat := build_local_rotation_matrix(transform)
-		topleft := mul_v2_with_m3(Vec2{topleft_x, topleft_y}, rotate_mat)
-		topright := mul_v2_with_m3(Vec2{topright_x, topright_y}, rotate_mat)
-		bottomleft := mul_v2_with_m3(Vec2{bottomleft_x, bottomleft_y}, rotate_mat)
-		bottomright := mul_v2_with_m3(Vec2{bottomright_x, bottomright_y}, rotate_mat)
-		color := parent == 0 ? rl.RED : rl.GREEN
+			topleft_x := world_pos.x - width / 2
+			topleft_y := world_pos.y - heigth / 2
+			topright_x := world_pos.x + width / 2
+			topright_y := world_pos.y - heigth / 2
+			bottomright_x := world_pos.x + width / 2
+			bottomright_y := world_pos.y + heigth / 2
+			bottomleft_x := world_pos.x - width / 2
+			bottomleft_y := world_pos.y + heigth / 2
+			rotate_mat := build_local_rotation_matrix(transform)
+			topleft := mul_v2_with_m3(Vec2{topleft_x, topleft_y}, rotate_mat)
+			topright := mul_v2_with_m3(Vec2{topright_x, topright_y}, rotate_mat)
+			bottomleft := mul_v2_with_m3(Vec2{bottomleft_x, bottomleft_y}, rotate_mat)
+			bottomright := mul_v2_with_m3(Vec2{bottomright_x, bottomright_y}, rotate_mat)
+			color := parent == 0 ? rl.RED : rl.GREEN
 
-		rl.DrawLineEx(topleft, topright, 2, color)
-		rl.DrawLineEx(topright, bottomright, 2, color)
-		rl.DrawLineEx(bottomright, bottomleft, 2, color)
-		rl.DrawLineEx(bottomleft, topleft, 2, color)
+			rl.DrawLineEx(topleft, topright, 2, color)
+			rl.DrawLineEx(topright, bottomright, 2, color)
+			rl.DrawLineEx(bottomright, bottomleft, 2, color)
+			rl.DrawLineEx(bottomleft, topleft, 2, color)
+		}
 	}
 
 	return true
 }
 
-draw_links :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawptr) -> bool {
-	chunk := it.current_chunk
-	transform_col := ecs.query_column(it, 0)
-	rect_col := ecs.query_column(it, 1)
+draw_links :: proc(world: ^ecs.World, it: ^ecs.Query_Iterator, dt: f64, ctx: rawptr) -> bool {
+	transform_col := ecs.column(it, 0)
+	rect_col := ecs.column(it, 1)
 
 	parent := ecs.query_get_parent(it)
 
@@ -186,15 +187,17 @@ draw_links :: proc(world: ^ecs.World, it: ^ecs.QueryIterator, dt: f64, ctx: rawp
 		return true
 	}
 
-	parent_transform := ecs.ecs_get(world, parent, Transform)
-	parent_size := ecs.ecs_get(world, parent, Rect)
+	parent_transform := ecs.get(world, parent, Transform)
+	parent_size := ecs.get(world, parent, Rect)
 	parent_pos := parent_transform.world_pos
 
-	for row := 0; row < len(chunk.entities); row += 1 {
-		transform := ecs.query_entity_data_mut(transform_col, row, Transform)
-		size := ecs.query_entity_data(rect_col, row, Rect)
+	for chunk in ecs.iter_next_chunk(it) {
+		for row := 0; row < chunk.count; row += 1 {
+			transform := ecs.get_mut(chunk, transform_col, row, Transform)
+			size := ecs.get(chunk, rect_col, row, Rect)
 
-		rl.DrawLineV(parent_pos, transform.world_pos, rl.BLUE)
+			rl.DrawLineV(parent_pos, transform.world_pos, rl.BLUE)
+		}
 	}
 
 	return true
