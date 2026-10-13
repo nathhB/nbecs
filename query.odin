@@ -20,6 +20,7 @@ Query_Term :: struct {
 }
 
 Query_Column_Index :: int
+Query_Max_Fields :: 32
 
 Query_Field :: struct {
 	exists: bool,
@@ -32,7 +33,7 @@ Query_Field :: struct {
 Query_Match :: struct {
 	archetype: ^Archetype,
 	parent:    Entity,
-	fields:    sa.Small_Array(Component_Set_Max_Capacity, Query_Field),
+	fields:    sa.Small_Array(Query_Max_Fields, Query_Field),
 }
 
 Query :: struct {
@@ -182,10 +183,9 @@ column :: proc(iterator: ^Query_Iterator, index: int) -> int {
 
 column_maybe :: proc(iterator: ^Query_Iterator, index: int) -> (col: int, exists: bool) {
 	ensure(iterator.current_match != nil)
-	ensure(index < sa.len(iterator.current_match.fields))
+	// ensure(index < sa.len(iterator.current_match.fields))
 
-	fields := sa.slice(&iterator.current_match.fields)
-	field := &fields[index]
+	field := sa.get_ptr(&iterator.current_match.fields, index)
 
 	if !field.exists {
 		return -1, false
@@ -210,9 +210,9 @@ unique_pair_entity :: proc(iterator: ^Query_Iterator, index: int) -> Entity {
 	ensure(iterator.current_match != nil)
 	ensure(iterator.terms[index].is_unique_pair)
 
-	fields := sa.slice(&iterator.current_match.fields)
+	field := sa.get_ptr(&iterator.current_match.fields, index)
 
-	return fields[index].data.(Entity)
+	return field.data.(Entity)
 }
 
 query_get_parent :: proc(it: ^Query_Iterator) -> Entity {
@@ -414,8 +414,6 @@ evaluate_archetype :: proc(
 
 	match.archetype = archetype
 	match.parent = parent
-
-	sa.resize(&match.fields, Component_Set_Max_Capacity)
 
 	for i := 0; i < len(terms); i += 1 {
 		term := terms[i]

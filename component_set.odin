@@ -4,16 +4,10 @@ import sa "core:container/small_array"
 import "core:log"
 import "core:slice"
 
-Component_Set_Max_Capacity :: 16
-
 Component_Set :: struct {
 	components: map[Entity]struct{},
 	hash:       u64,
 }
-
-@(thread_local)
-@(private = "file")
-component_ids: sa.Small_Array(Component_Set_Max_Capacity, Entity)
 
 set_build :: proc(component_ids: []Entity, allocator := context.allocator) -> Component_Set {
 	component_count := len(component_ids)
@@ -39,17 +33,17 @@ set_add :: proc(
 	entity: Entity,
 	allocator := context.allocator,
 ) -> Component_Set {
-	assert(len(set.components) + 1 <= Component_Set_Max_Capacity)
+	component_ids := make([]Entity, len(set.components) + 1, context.temp_allocator)
 
-	sa.clear(&component_ids)
-
+	idx := 0
 	for component_id, _ in set.components {
-		sa.append(&component_ids, component_id)
+		component_ids[idx] = component_id
+		idx += 1
 	}
 
-	sa.append(&component_ids, entity)
+	component_ids[idx] = entity
 
-	return set_build(sa.slice(&component_ids), allocator)
+	return set_build(component_ids, allocator)
 }
 
 set_remove :: proc(
@@ -57,15 +51,17 @@ set_remove :: proc(
 	entity: Entity,
 	allocator := context.allocator,
 ) -> Component_Set {
-	sa.clear(&component_ids)
+	component_ids := make([]Entity, len(set.components) - 1, context.temp_allocator)
 
+	idx := 0
 	for component_id, _ in set.components {
 		if component_id != entity {
-			sa.append(&component_ids, component_id)
+			component_ids[idx] = component_id
+			idx += 1
 		}
 	}
 
-	return set_build(sa.slice(&component_ids), allocator)
+	return set_build(component_ids, allocator)
 }
 
 set_replace :: proc(
@@ -74,13 +70,15 @@ set_replace :: proc(
 	add: Entity,
 	allocator := context.allocator,
 ) -> Component_Set {
-	sa.clear(&component_ids)
+	component_ids := make([]Entity, len(set.components), context.temp_allocator)
 
+	idx := 0
 	for component_id, _ in set.components {
-		sa.append(&component_ids, component_id == rm ? add : component_id)
+		component_ids[idx] = component_id == rm ? add : component_id
+		idx += 1
 	}
 
-	return set_build(sa.slice(&component_ids), allocator)
+	return set_build(component_ids, allocator)
 }
 
 set_remove_relationship :: proc(
@@ -88,57 +86,63 @@ set_remove_relationship :: proc(
 	entity: Entity,
 	allocator := context.allocator,
 ) -> Component_Set {
-	sa.clear(&component_ids)
+	component_ids := make([]Entity, len(set.components), context.temp_allocator)
 
+	idx := 0
 	for component_id, _ in set.components {
 		if is_pair(component_id) && pair_contains(component_id, entity) {
 			continue
 		}
 
-		sa.append(&component_ids, component_id)
+		component_ids[idx] = component_id
+		idx += 1
 	}
 
-	return set_build(sa.slice(&component_ids), allocator)
+	return set_build(component_ids[:idx], allocator)
 }
 
-set_has :: proc(set: ^Component_Set, component_id: Entity) -> bool {
+set_has :: #force_inline proc(set: ^Component_Set, component_id: Entity) -> bool {
 	return component_id in set.components
 }
 
 set_build_hash_add :: proc(set: ^Component_Set, add: Entity) -> u64 {
-	assert(len(set.components) + 1 <= Component_Set_Max_Capacity)
+	component_ids := make([]Entity, len(set.components) + 1, context.temp_allocator)
 
-	sa.clear(&component_ids)
-
+	idx := 0
 	for component_id, _ in set.components {
-		sa.append(&component_ids, component_id)
+		component_ids[idx] = component_id
+		idx += 1
 	}
 
-	sa.append(&component_ids, add)
+	component_ids[idx] = add
 
-	return set_build_hash(sa.slice(&component_ids))
+	return set_build_hash(component_ids)
 }
 
 set_build_hash_rm :: proc(set: ^Component_Set, rm: Entity) -> u64 {
-	sa.clear(&component_ids)
+	component_ids := make([]Entity, len(set.components) - 1, context.temp_allocator)
 
+	idx := 0
 	for component_id, _ in set.components {
 		if component_id != rm {
-			sa.append(&component_ids, component_id)
+			component_ids[idx] = component_id
+			idx += 1
 		}
 	}
 
-	return set_build_hash(sa.slice(&component_ids))
+	return set_build_hash(component_ids)
 }
 
 set_build_hash_replace :: proc(set: ^Component_Set, rm: Entity, add: Entity) -> u64 {
-	sa.clear(&component_ids)
+	component_ids := make([]Entity, len(set.components), context.temp_allocator)
 
+	idx := 0
 	for component_id, _ in set.components {
-		sa.append(&component_ids, component_id == rm ? add : component_id)
+		component_ids[idx] = component_id == rm ? add : component_id
+		idx += 1
 	}
 
-	return set_build_hash(sa.slice(&component_ids))
+	return set_build_hash(component_ids)
 }
 
 set_build_hash :: proc(component_ids: []Entity) -> u64 {

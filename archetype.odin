@@ -108,7 +108,7 @@ archetype_deinit :: proc(archetype: ^Archetype) {
 	set_destroy(&archetype.component_set)
 }
 
-archetype_has :: proc(archetype: ^Archetype, component_id: Entity) -> bool {
+archetype_has :: #force_inline proc(archetype: ^Archetype, component_id: Entity) -> bool {
 	return !archetype.is_root && set_has(&archetype.component_set, component_id)
 }
 
