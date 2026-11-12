@@ -1012,7 +1012,6 @@ get_mut :: proc {
 get_component :: proc(world: ^World, entity: Entity, $T: typeid) -> T {
 	ensure(is_valid(world, entity))
 
-	component_id := get_component_type(world, T).id
 	comp, ok := get_safe(world, entity, T)
 	ensure(ok)
 
