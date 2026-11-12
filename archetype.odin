@@ -127,7 +127,10 @@ archetype_add_entity :: proc(
 		archetype.active_chunk = chunk
 	}
 
-	row = archetype_chunk_add_entity(chunk, entity)
+	row = chunk.count
+	assert(row < chunk.capacity)
+	chunk.entities[row] = entity
+	chunk.count += 1
 
 	return
 }
