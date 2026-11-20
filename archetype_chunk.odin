@@ -79,15 +79,6 @@ archetype_chunk_create :: proc(
 	return chunk
 }
 
-archetype_chunk_add_entity :: proc(chunk: ^Archetype_Chunk, entity: Entity) -> int {
-	count := chunk.count
-	assert(count < chunk.capacity)
-	chunk.entities[chunk.count] = entity
-	chunk.count += 1
-
-	return count
-}
-
 archetype_chunk_delete_entity :: proc(chunk: ^Archetype_Chunk, row: int) -> Entity {
 	moved_entity: Entity = 0
 
