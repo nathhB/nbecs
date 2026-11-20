@@ -23,6 +23,7 @@ parse_query :: proc(
 	query_str: string,
 	cascade := false,
 	allocator := context.allocator,
+	include_prefabs := false,
 ) -> ^Query {
 	tokens, err := tokenize_query_string(query_str, allocator)
 	defer delete_slice(tokens)
@@ -70,7 +71,10 @@ parse_query :: proc(
 		append(&terms, t)
 	}
 
-	return query(world, ..terms[:], cascade = cascade, allocator = allocator)
+	return query(
+		world, ..terms[:], cascade = cascade, allocator = allocator,
+		include_prefabs = include_prefabs,
+	)
 }
 
 tokenize_query_string :: proc(

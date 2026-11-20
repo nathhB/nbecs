@@ -1221,9 +1221,17 @@ get_parent :: proc(world: ^World, entity: Entity) -> Entity {
 	return parent
 }
 
-get_children :: proc(world: ^World, entity: Entity, allocator := context.allocator) -> []Entity {
+get_children :: proc(
+	world: ^World,
+	entity: Entity,
+	allocator := context.allocator,
+	include_prefabs := false,
+) -> []Entity {
 	childof_pair := build_pair(ChildOf_Id, entity)
-	it := iter(world, term(world, childof_pair), allocator = allocator)
+	it := iter(
+		world, term(world, childof_pair),
+		allocator = allocator, include_prefabs = include_prefabs,
+	)
 
 	children := make([dynamic]Entity, allocator = allocator)
 
@@ -1335,13 +1343,24 @@ new_instance_of :: proc(world: ^World, prefab: Entity, name := "") -> Entity {
 	src_row := prefab_entry.row
 	dest_chunk, dest_row := archetype_add_entity(world, src_chunk.archetype, entity)
 
+	// new() already inserted this entity into the empty archetype. Remove that
+	// row before assigning its cloned row, preserving swap-remove bookkeeping.
+	initial_chunk := entity_entry.chunk
+	initial_row := entity_entry.row
+	moved_entity := archetype_delete_entity(initial_chunk.archetype, initial_chunk, initial_row)
+	if moved_entity != 0 {
+		moved_entry := &world.entities[moved_entity]
+		moved_entry.row = initial_row
+	}
 	entity_entry.chunk = dest_chunk
 	entity_entry.row = dest_row
 
 	archetype_chunk_copy_row(src_chunk, dest_chunk, src_row, dest_row)
 	remove(world, entity, Prefab)
 
-	prefab_children := get_children(world, prefab, allocator = context.temp_allocator)
+	prefab_children := get_children(
+		world, prefab, allocator = context.temp_allocator, include_prefabs = true,
+	)
 
 	for prefab_child in prefab_children {
 		child := new_instance_of(world, prefab_child)

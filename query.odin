@@ -74,30 +74,40 @@ build_query :: proc(
 	terms: ..Query_Term,
 	cascade := false,
 	allocator := context.allocator,
+	include_prefabs := false,
 ) -> ^Query {
 	query := builtin.new(Query, allocator)
 
 	query.world = world
-	// + 1 so we can add the '!Prefab' term, see below
-	query.terms = make([]Query_Term, len(terms) + 1, allocator)
+	query.terms = prepare_query_terms(world, terms, include_prefabs, allocator)
 	query.matches = make([dynamic]Query_Match, allocator)
 	query.match_index = make(map[u64]int, allocator)
 	query.allocator = allocator
 	query.cascade = cascade
 
-	for &term, index in terms {
-		// ensure(!term.is_wildcard_pair || term.component_id in query.world.archetype_index)
-		term.index = index
-		query.terms[index] = term
-	}
-
-	// make sure prefab entities are not matched in queries
-	query.terms[len(terms)] = not_term(world, Prefab)
-
 	evaluate_cached_query(query)
 	append(&world.queries, query)
 
 	return query
+}
+
+@(private = "file")
+prepare_query_terms :: proc(
+	world: ^World,
+	terms: []Query_Term,
+	include_prefabs: bool,
+	allocator: mem.Allocator,
+) -> []Query_Term {
+	term_count := len(terms) + (include_prefabs ? 0 : 1)
+	result := make([]Query_Term, term_count, allocator)
+	copy(result, terms)
+	if !include_prefabs {
+		result[len(terms)] = not_term(world, Prefab)
+	}
+	for &term, index in result {
+		term.index = index
+	}
+	return result
 }
 
 destroy_query :: proc(query: ^Query) {
@@ -121,16 +131,13 @@ filter_iter :: proc(
 	world: ^World,
 	terms: ..Query_Term,
 	allocator := context.temp_allocator,
+	include_prefabs := false,
 ) -> Query_Iterator {
 	matches := make([dynamic]Query_Match, allocator)
+	query_terms := prepare_query_terms(world, terms, include_prefabs, allocator)
+	evaluate_terms(world, query_terms, &matches, allocator)
 
-	for &term, index in terms {
-		term.index = index
-	}
-
-	evaluate_terms(world, terms, &matches, allocator)
-
-	return Query_Iterator{world, terms, matches[:], nil, nil, 0, 0}
+	return Query_Iterator{world, query_terms, matches[:], nil, nil, 0, 0}
 }
 
 archetype_iter :: proc(
@@ -317,9 +324,17 @@ query_matches_archetype :: proc(query: ^Query, archetype: ^Archetype) -> bool {
 
 @(private = "file")
 evaluate_cached_query :: proc(query: ^Query) {
-	ensure(len(query.terms) > 0)
-
 	clear_matches(query)
+
+	// Without a required positive term, a component index cannot enumerate
+	// every candidate (including entities with no components).
+	if query_requires_full_scan(query.terms) {
+		for _, node in query.world.archetypes.nodes {
+			match := evaluate_archetype(query.world, query.terms, &node.archetype) or_continue
+			add_cached_match(query, &match)
+		}
+		return
+	}
 
 	for term in query.terms {
 		archetype_map := query.world.archetype_index[term.component_id] or_continue
@@ -374,12 +389,30 @@ query_on_archertype_deleted :: proc(query: ^Query, archetype: ^Archetype) {
 }
 
 @(private = "file")
+query_requires_full_scan :: proc(terms: []Query_Term) -> bool {
+	for term in terms {
+		if !term.not && !term.optional {
+			return false
+		}
+	}
+	return true
+}
+
+@(private = "file")
 evaluate_terms :: proc(
 	world: ^World,
 	terms: []Query_Term,
 	matches: ^[dynamic]Query_Match,
 	allocator: mem.Allocator,
 ) {
+	if query_requires_full_scan(terms) {
+		for _, node in world.archetypes.nodes {
+			match := evaluate_archetype(world, terms, &node.archetype, allocator) or_continue
+			append(matches, match)
+		}
+		return
+	}
+
 	match_map := make(map[u64]bool, allocator)
 
 	for term in terms {
